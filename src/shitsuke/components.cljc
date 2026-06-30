@@ -13,6 +13,19 @@
   (mirrors mangaka reader's wire-lang-switch! pattern)."
   (:require [shitsuke.style :as s]))
 
+(defn- act->str
+  "Render an `act` value to the data-act attribute string, preserving the
+  keyword namespace: :cart/add → \"cart/add\", :new-deck → \"new-deck\".
+  Strings pass through; nil stays nil (attribute dropped)."
+  [a]
+  (cond
+    (nil? a) nil
+    (string? a) a
+    (keyword? a) (if-let [ns (namespace a)]
+                   (str ns "/" (name a))
+                   (name a))
+    :else (str a)))
+
 (defn button
   "Plain button. `label` may be string or hiccup. opts: :class, :act, :disabled,
   :title, :type."
@@ -24,7 +37,7 @@
                :type (or type "button")
                :disabled (when disabled true)
                :title title
-               :data-act (some-> act name)}
+               :data-act (some-> act act->str)}
       label])))
 
 (defn icon-button
@@ -55,7 +68,7 @@
               :value (or value "")
               :placeholder placeholder
               :on-input on-input
-              :data-act (some-> act name)}])))
+              :data-act (some-> act act->str)}])))
 
 (defn textarea
   ([opts]
@@ -65,7 +78,7 @@
                  :rows (or rows 6)
                  :placeholder placeholder
                  :on-input on-input
-                 :data-act (some-> act name)}
+                 :data-act (some-> act act->str)}
       (or value "")])))
 
 (defn select
@@ -75,7 +88,7 @@
      [:select {:id id
                :class (s/class-name :select)
                :on-change on-change
-               :data-act (some-> act name)}
+               :data-act (some-> act act->str)}
       (for [[v l] options]
         [:option {:value v :selected (= (str v) (str value))} l])])))
 
@@ -108,7 +121,7 @@
                 :type "button"
                 :class (str (s/class-name :tab)
                             (when (= id current) (str " " (s/class-name :tab--active))))
-                :data-act (some-> id name)}
+                :data-act (some-> id act->str)}
        label])]))
 
 (defn thumb
@@ -118,7 +131,7 @@
   ([body active? opts]
    [:button {:type "button"
              :class (str (s/class-name :thumb) (when active? (str " " (s/class-name :thumb--active))))
-             :data-act (some-> (:act opts) name)}
+             :data-act (some-> (:act opts) act->str)}
     body]))
 
 (defn pane

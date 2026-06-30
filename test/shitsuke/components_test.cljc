@@ -8,6 +8,9 @@
 (deftest button-test
   (is (= "<button class=\"shitsuke__button\" type=\"button\" data-act=\"go\">Go</button>"
          (html (c/button "Go" {:act :go}))))
+  (testing "namespaced act preserves the namespace"
+    (is (= "<button class=\"shitsuke__button\" type=\"button\" data-act=\"cart/add\">Add</button>"
+           (html (c/button "Add" {:act :cart/add})))))
   (testing "disabled true emits bare attribute"
     (is (= "<button class=\"shitsuke__button\" type=\"button\" disabled>Go</button>"
            (html (c/button "Go" {:disabled true}))))
