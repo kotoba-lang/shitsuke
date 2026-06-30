@@ -11,13 +11,13 @@
   App code MUST NOT use: reg-event-fx, reg-fx, reg-cofx, inject-cofx,
   interceptors, subscription chaining (<-). Those are not in the mini runtime
   and would break JVM SSR / WASM hosts."
-  #?(:cljs (:require-macros [re-frame.core :refer [reg-event-db reg-sub]])
-     :clj  (:require [shitsuke.re-frame :as sr]))
+  #?(:clj  (:require [shitsuke.re-frame :as sr]))
   #?(:cljs (:require [re-frame.core :as rframe]
                      [re-frame.db :as rfdb])))
 
-;; reg-event-db / reg-sub are macros on real re-frame (referred via
-;; :require-macros on :cljs); on :clj they are the mini runtime's functions.
+;; reg-event-db / reg-sub are plain vars here so callers can use the same
+;; rf/reg-event-db form from both portable CLJC registration functions and
+;; browser CLJS builds.
 #?(:clj
    (do
      (def reg-event-db sr/reg-event-db)
@@ -29,9 +29,11 @@
      (def app-db        sr/app-db))
    :cljs
    (do
-     ;; reg-event-db / reg-sub come from the referred macros above.
+     (def reg-event-db rframe/reg-event-db)
+     (def reg-sub       rframe/reg-sub)
      (def dispatch      rframe/dispatch)
      (def dispatch-sync rframe/dispatch-sync)
      (def subscribe     rframe/subscribe)
-     (def clear!        rframe/clear!)
+     (defn clear! []
+       (reset! rfdb/app-db {}))
      (def app-db        rfdb/app-db)))
