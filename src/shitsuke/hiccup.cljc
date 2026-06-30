@@ -46,14 +46,31 @@
         (coll? v)    (str/join " " (filter identity v))
         :else        (str v)))
 
+(defn- style-map->css
+  "Render a reagent-style :style map {:font-size \"10px\" :color \"#fff\"} as a
+  CSS declaration string `font-size:10px;color:#fff;`. Lets the same hiccup
+  data carry inline styles through both reagent (cljs, map) and ->html (SSR,
+  string). Keys are keyword/string names; nil/false values are skipped."
+  [m]
+  (->> m
+       (keep (fn [[k v]]
+               (when (and v (not (false? v)))
+                 (str (name k) ":" (if (true? v) "true" v) ";"))))
+       (str/join "")))
+
 (defn- render-attrs [attrs]
   (->> attrs
        (keep (fn [[k v]]
                (when (and v (not (false? v)))
-                 (let [k (name k)
-                       v (if (= k "class") (class-str v) v)]
-                   (if (true? v)
+                 (let [k (name k)]
+                   (cond
+                     (= k "class")
+                     (str " " k "=\"" (esc (class-str v)) "\"")
+                     (and (= k "style") (map? v))
+                     (str " " k "=\"" (esc (style-map->css v)) "\"")
+                     (true? v)
                      (str " " k)
+                     :else
                      (str " " k "=\"" (esc v) "\""))))))
        (apply str)))
 

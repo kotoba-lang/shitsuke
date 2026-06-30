@@ -43,3 +43,14 @@
   (let [view [:div.card [:button {:data-act "go"} "Go"] [:p "hi & bye"]]]
     (is (= "<div class=\"card\"><button data-act=\"go\">Go</button><p>hi &amp; bye</p></div>"
            (h/->html view)))))
+
+(deftest style-map-test
+  "reagent :style map renders to a CSS string for SSR (dual-render style support)."
+  (is (= "<div style=\"font-size:10px;color:#fff;\"></div>"
+         (h/->html [:div {:style {:font-size "10px" :color "#fff"}}])))
+  (testing "string style still passes through"
+    (is (= "<div style=\"color:red\"></div>"
+           (h/->html [:div {:style "color:red"}]))))
+  (testing "nil/false props in style map are skipped"
+    (is (= "<div style=\"color:#fff;\"></div>"
+           (h/->html [:div {:style {:color "#fff" :font-size nil :display false}}])))))
