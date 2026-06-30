@@ -1,0 +1,37 @@
+(ns shitsuke.re-frame.core
+  "Host-independent re-frame seam.
+
+  App code requires `[shitsuke.re-frame.core :as rf]` (NOT `re-frame.core`
+  directly) so the SAME code runs on:
+    :cljs browser build → real re-frame 1.4.3 (reagent reactions, async queue)
+    :clj  JVM SSR / tests → shitsuke.re-frame mini runtime (synchronous atoms)
+
+  Portable contract (the subset app code may use — pinned by test/re_frame_test):
+    reg-event-db, reg-sub, dispatch, dispatch-sync, subscribe, clear!, app-db.
+  App code MUST NOT use: reg-event-fx, reg-fx, reg-cofx, inject-cofx,
+  interceptors, subscription chaining (<-). Those are not in the mini runtime
+  and would break JVM SSR / WASM hosts."
+  #?(:cljs (:require-macros [re-frame.core :refer [reg-event-db reg-sub]])
+     :clj  (:require [shitsuke.re-frame :as sr]))
+  #?(:cljs (:require [re-frame.core :as rframe]
+                     [re-frame.db :as rfdb])))
+
+;; reg-event-db / reg-sub are macros on real re-frame (referred via
+;; :require-macros on :cljs); on :clj they are the mini runtime's functions.
+#?(:clj
+   (do
+     (def reg-event-db sr/reg-event-db)
+     (def reg-sub       sr/reg-sub)
+     (def dispatch      sr/dispatch)
+     (def dispatch-sync sr/dispatch-sync)
+     (def subscribe     sr/subscribe)
+     (def clear!        sr/clear!)
+     (def app-db        sr/app-db))
+   :cljs
+   (do
+     ;; reg-event-db / reg-sub come from the referred macros above.
+     (def dispatch      rframe/dispatch)
+     (def dispatch-sync rframe/dispatch-sync)
+     (def subscribe     rframe/subscribe)
+     (def clear!        rframe/clear!)
+     (def app-db        rfdb/app-db)))
