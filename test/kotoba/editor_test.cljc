@@ -84,5 +84,37 @@
                  #(update % :x inc))]
     (is (= {0 {:x 2} 1 {:x 3}} (:items next-db)))))
 
+(deftest indexed-collection-ops-test
+  (is (= [{:x 1} {:x 3}]
+         (editor/update-indexed [{:x 1} {:x 2}] 1 #(update % :x inc))))
+  (is (= [{:x 2} {:x 2} {:x 4}]
+         (editor/update-selected-indexed [{:x 1} {:x 2} {:x 3}]
+                                         #{0 2}
+                                         #(update % :x inc))))
+  (let [result (editor/duplicate-selected-indexed
+                [{:id "a"} {:id "b"} {:id "c"}]
+                #{0 2}
+                (fn [item new-idx]
+                  (assoc item :id (str (:id item) "-" new-idx))))]
+    (is (= [{:id "a"} {:id "b"} {:id "c"} {:id "a-3"} {:id "c-4"}]
+           (:items result)))
+    (is (= #{3 4} (:selected result)))
+    (is (= 3 (:primary result))))
+  (is (= {:items [{:id "b"}] :selected #{} :primary nil}
+         (editor/delete-selected-indexed [{:id "a"} {:id "b"} {:id "c"}] #{0 2}))))
+
+(deftest rect-frame-ops-test
+  (is (= {:x 3 :y 4 :w 5 :h 6}
+         (editor/set-rect-frame {:x 1 :y 2} 3 4 5 6)))
+  (is (= {:slides/x 1.5 :slides/y 2.25}
+         (editor/offset-rect {:slides/x 1 :slides/y 2}
+                             0.5
+                             0.25
+                             {:x :slides/x :y :slides/y})))
+  (is (= {:slides/x 1 :slides/y 2 :slides/w 3 :slides/h 4}
+         (editor/set-rect-frame {}
+                                1 2 3 4
+                                {:x :slides/x :y :slides/y :w :slides/w :h :slides/h}))))
+
 (deftest normalize-selected-ids-test
   (is (= #{1 3} (editor/normalize-selected-ids #{1 2 3} [1 3 4]))))

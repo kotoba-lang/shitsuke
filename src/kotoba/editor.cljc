@@ -111,6 +111,66 @@
           db
           selected-ids))
 
+(defn update-indexed
+  "Update one item in an indexed collection, preserving vector shape."
+  [items idx f]
+  (let [xs (vec items)]
+    (if (and (integer? idx) (<= 0 idx) (< idx (count xs)))
+      (assoc xs idx (f (get xs idx)))
+      xs)))
+
+(defn update-selected-indexed
+  "Update every selected item in an indexed collection."
+  [items selected f]
+  (reduce (fn [xs idx] (update-indexed xs idx f))
+          (vec items)
+          (sort selected)))
+
+(defn duplicate-selected-indexed
+  "Append copies of selected indexed items.
+
+  `copy-fn` receives [item new-index] and must return the copied item. Returns a
+  map with :items, :selected, and :primary for caller db selection state."
+  [items selected copy-fn]
+  (let [xs (vec items)
+        source-idxs (vec (filter #(< -1 % (count xs)) (sort selected)))]
+    (loop [acc xs
+           selected-out #{}
+           [idx & more] source-idxs]
+      (if (nil? idx)
+        {:items acc
+         :selected selected-out
+         :primary (first (sort selected-out))}
+        (let [new-idx (count acc)
+              copy (copy-fn (get xs idx) new-idx)]
+          (recur (conj acc copy) (conj selected-out new-idx) more))))))
+
+(defn delete-selected-indexed
+  "Delete selected indexed items and clear selection."
+  [items selected]
+  (let [selected-set (set selected)]
+    {:items (->> (vec items)
+                 (keep-indexed (fn [idx item]
+                                 (when-not (contains? selected-set idx)
+                                   item)))
+                 vec)
+     :selected #{}
+     :primary nil}))
+
+(defn offset-rect
+  "Move a rectangle-like map by dx/dy using caller supplied key names."
+  ([rect dx dy] (offset-rect rect dx dy {:x :x :y :y}))
+  ([rect dx dy {:keys [x y] :or {x :x y :y}}]
+   (-> rect
+       (update x (fnil + 0) dx)
+       (update y (fnil + 0) dy))))
+
+(defn set-rect-frame
+  "Set a rectangle-like map's frame using caller supplied key names."
+  ([rect x y w h] (set-rect-frame rect x y w h {:x :x :y :y :w :w :h :h}))
+  ([rect x-value y-value w-value h-value {:keys [x y w h] :or {x :x y :y w :w h :h}}]
+   (assoc rect x x-value y y-value w w-value h h-value)))
+
 (defn align-rects
   "Align selected rectangle-like items.
 
