@@ -1,8 +1,8 @@
 # shitsuke
 
 `shitsuke`（仕付け）is the Kotoba shared **UI design system**: design tokens,
-hiccup renderer, style (CSS) layer, portable re-frame seam, and pure-hiccup
-component primitives. One set of `.cljc` view code renders two ways — SSR
+hiccup renderer, style (CSS) layer, portable re-frame seam, pure-hiccup
+component primitives, and small host-independent editor kernels. One set of `.cljc` view code renders two ways — SSR
 (`shitsuke.hiccup/->html`, clj/babashka) and live browser (reagent + re-frame,
 cljs) — the dual-render contract proven by `kami-mangaka-reader-clj`.
 
@@ -12,7 +12,7 @@ It owns no filesystem, network, or host effects. Real `reagent` / `re-frame` /
 deps (same split as `dot` / `kasane` / `slides`).
 
 ```text
-shitsuke = tokens + hiccup + style + re-frame seam + components
+shitsuke = tokens + hiccup + style + re-frame seam + components + editor kernels
 ```
 
 ## Boundaries
@@ -26,6 +26,7 @@ shitsuke = tokens + hiccup + style + re-frame seam + components
 | `shitsuke.re-frame.core` | host seam: real re-frame (cljs) ‖ mini runtime (clj) |
 | `shitsuke.reagent.core` | host seam: real reagent (cljs) ‖ `hiccup/->html` (clj) |
 | `shitsuke.components` | pure-hiccup UI primitives (button/field/input/toolbar/mode-tabs/…) |
+| `kotoba.editor` | portable editor state helpers: selection, undo/redo, nudge, alignment |
 | host build | shadow-css `:pages` extraction, reagent/re-frame `:cljs` aliases |
 
 ## Dual render (the contract)
