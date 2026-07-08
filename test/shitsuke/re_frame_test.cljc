@@ -30,7 +30,7 @@
   (is (= [10 20 30] @(rf/subscribe [:items])))
   (is (= 20        @(rf/subscribe [:item-count 1])))
   (testing "subscribe returns an IDeref, not a bare value"
-    (is (instance? clojure.lang.IDeref (rf/subscribe [:items])))))
+    (is (instance? #?(:clj clojure.lang.IDeref :cljs cljs.core/IDeref) (rf/subscribe [:items])))))
 
 (deftest clear-test
   (rf/reg-event-db :x (fn [_ _] {:x 1}))
