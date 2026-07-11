@@ -15,7 +15,26 @@
     (is (= "<button class=\"shitsuke__button\" type=\"button\" disabled>Go</button>"
            (html (c/button "Go" {:disabled true}))))
     (is (= "<button class=\"shitsuke__button\" type=\"button\">Go</button>"
-           (html (c/button "Go" {:disabled false}))))))
+           (html (c/button "Go" {:disabled false})))))
+  (testing "a consumer :class opt is appended, not dropped -- a real bug: `class`
+            was destructured from opts but never referenced in the returned
+            hiccup, so every caller-supplied :class (net-babiniku's back-btn/
+            create-btn/nav-tab--active/etc, and every other consumer of this
+            shared component across kotoba-lang) was silently discarded, with
+            liquid-glass.components/button's own glassify wrapper only ever
+            adding its own liquid-glass__button class on top of the untouched
+            base -- found 2026-07-11 auditing why net-babiniku's nav-tab--active
+            never rendered with any visual distinction."
+    (is (= "<button class=\"shitsuke__button my-btn\" type=\"button\">Go</button>"
+           (html (c/button "Go" {:class "my-btn"}))))))
+
+(deftest icon-button-test
+  (testing "icon-button's own class-merge (base class + caller's :class) only
+            works if the underlying button honors :class from opts -- this
+            regresses the SAME bug as button-test's :class case above, one
+            layer up."
+    (is (= "<button class=\"shitsuke__button shitsuke__icon-button my-icon\" type=\"button\">×</button>"
+           (html (c/icon-button "×" {:class "my-icon"}))))))
 
 (deftest field-test
   (let [v (c/field "Name" (c/input {:id "n"}) {:for-id "n"})]

@@ -33,7 +33,7 @@
    (button label nil))
   ([label opts]
    (let [{:keys [act disabled title type class]} opts]
-     [:button {:class (s/class-name :button)
+     [:button {:class (str (s/class-name :button) (when class (str " " class)))
                :type (or type "button")
                :disabled (when disabled true)
                :title title
