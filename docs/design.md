@@ -28,6 +28,56 @@ API:
 - `(from-slides-design deck-design)` — adapter: build a shitsuke token-override map from a
   `slides.design` deck design (`:slides/theme` colors/fonts + `:slides/text-styles`).
 
+## Layer — `shitsuke.hig`
+
+Apple-HIG semantic token layer + base CSS. Additive to `shitsuke.tokens`
+(v1 `--shitsuke-*` vars are untouched); only `tokens/deep-merge` is reused.
+
+Token groups (one map, `default-hig-tokens`; `dark-hig-tokens` is the partial
+dark override for color/palette):
+
+```clojure
+{:hig/text     {<style> {:font-family ... :font-size ... :line-height ... :font-weight ...}}
+ ;; the 11 Apple text styles: :large-title :title1 :title2 :title3 :headline
+ ;; :body :callout :subheadline :footnote :caption1 :caption2.
+ ;; >= 20px use the SF Pro Display stack, < 20px the SF Pro Text stack.
+ :hig/color    {<token> <css-color>}   ; UIKit semantic colors (:label, :separator,
+                                       ; :system-background, ..., :tint = accent/theme
+                                       ; override point)
+ :hig/palette  {<token> <css-color>}   ; system palette (:red ... :gray6)
+ :hig/spacing  {:1 "4px" ... :10 "64px" :content-margin "16px"}  ; 4pt grid
+ :hig/radius   {:xs "6px" :sm "10px" :md "14px" :lg "20px" :xl "28px" :capsule "999px"}
+ :hig/hairline "0.5px"}
+```
+
+Var naming: `--hig-<group>-<token>` (`--hig-color-label`, `--hig-radius-md`,
+`--hig-spacing-content-margin`, `--hig-hairline`); nested text styles expand
+per-prop (`--hig-text-body-font-size`).
+
+API:
+- `semantic-colors` / `system-palette` — token → `{:light <css> :dark <css>}` source data.
+- `(resolve-hig-tokens overrides?)` / `(resolve-dark-hig-tokens overrides?)` — deep-merged token maps.
+- `(css-variables overrides?)` — `:root { --hig-...: ...; }` (light).
+- `(dark-css-variables overrides? dark-overrides?)` — dark vars three ways:
+  `@media (prefers-color-scheme: dark)` + `:root[data-appearance="dark"]`
+  (page forces dark via attribute) + `:root[data-appearance="light"]`
+  (light reset, so forced light out-specifies the dark media query).
+- `layer-order-css` — `"@layer kotoba.hig, kotoba.glass;"`.
+- `(base-css overrides?)` — element defaults (body/h1–h4/p/small/code/a/hr/
+  `::selection`/`:focus-visible`/reduced-motion) in `@layer kotoba.hig`.
+- `text-style-classes` — `.hig-large-title` … `.hig-caption2` utilities, also layered.
+- `(hig-css overrides? dark-overrides?)` — the full bundle in order:
+  layer order → vars → dark vars → base CSS → text-style classes.
+- `(inline-style css?)` / `(inline-style-hiccup css?)` — `<style>` string /
+  `[:style [:hiccup/raw css]]` (mirrors `shitsuke.style`).
+
+Cascade-layer contract: `kotoba.hig` (this base) < `kotoba.glass`
+(liquid-glass-ui's material layer) < **unlayered app CSS** — an app never has
+to fight the design system's specificity; its own rules always win. Forced
+appearance: set `data-appearance="dark"` / `"light"` on the root element to
+override the OS `prefers-color-scheme` preference (`color-scheme` follows the
+attribute too).
+
 ## Layer 2 — `shitsuke.hiccup`
 
 Dependency-free hiccup → HTML string renderer (`.cljc`, babashka-safe). The SSR
