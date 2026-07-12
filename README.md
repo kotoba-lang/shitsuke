@@ -20,6 +20,7 @@ shitsuke = tokens + hiccup + style + re-frame seam + components + editor kernels
 | layer | role |
 |---|---|
 | `shitsuke.tokens` | design-token IR + resolver + `:root` CSS-var emitter; `from-slides-design` adapter |
+| `shitsuke.hig` | Apple-HIG semantic token layer: 11 text styles, semantic colors (light+dark), palette, spacing/radius, element base CSS — `--hig-*` vars inside cascade layer `kotoba.hig` |
 | `shitsuke.hiccup` | dependency-free hiccup → HTML string renderer (SSR twin of the view contract) |
 | `shitsuke.style` | token → CSS custom properties + stable `shitsuke__*` class-name registry |
 | `shitsuke.re-frame` | tiny re-frame-shaped runtime (7-fn portable subset) for JVM/SSR/WASM |
@@ -43,6 +44,23 @@ shitsuke = tokens + hiccup + style + re-frame seam + components + editor kernels
 ;; Browser (cljs): the SAME `view` is returned by a reagent component and
 ;; mounted via shitsuke.reagent.core/render; state via shitsuke.re-frame.core.
 ```
+
+## `shitsuke.hig` — Apple-HIG base layer
+
+`shitsuke.hig` is the single source of truth for Apple Human Interface
+Guidelines-grade typography (the 11 UIKit text styles), semantic colors
+(light + dark), system palette, 4pt-grid spacing, radius, and element-level
+base CSS. It emits `--hig-*` CSS custom properties and element rules inside
+the CSS cascade layer `kotoba.hig`
+(`(hig-css overrides dark-overrides)` = the full bundle; the order
+declaration is `@layer kotoba.hig, kotoba.glass;`).
+
+- **liquid-glass-ui** fills the `kotoba.glass` layer with its material
+  (translucency/vibrancy) styles on top of this base.
+- **Apps** consume both via **kotoba-ui**; app CSS stays *unlayered*, so it
+  always beats both layers.
+- Additive to `shitsuke.tokens` — v1 `--shitsuke-*` vars stay for existing
+  consumers.
 
 ## Tests
 
