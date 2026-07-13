@@ -44,6 +44,27 @@
     (is (= "<div class=\"card\"><button data-act=\"go\">Go</button><p>hi &amp; bye</p></div>"
            (h/->html view)))))
 
+(deftest textarea-value-test
+  "SSR special case: real HTML has no value attribute on <textarea> -- the
+  pre-filled text is element content. The live (reagent) side of the
+  dual-render contract needs :value as an attribute, so ->html translates."
+  (testing ":value renders as escaped element content, and no value= attribute"
+    (is (= "<textarea id=\"t\">a&lt;b</textarea>"
+           (h/->html [:textarea {:id "t" :value "a<b"}])))
+    (is (= "<textarea>&amp;&lt;&gt;&quot;</textarea>"
+           (h/->html [:textarea {:value "&<>\""}]))))
+  (testing "empty-string :value -> empty content, still no value= attribute"
+    (is (= "<textarea id=\"t\"></textarea>"
+           (h/->html [:textarea {:id "t" :value ""}]))))
+  (testing "textarea without :value is untouched; children still render"
+    (is (= "<textarea rows=\"3\">body</textarea>"
+           (h/->html [:textarea {:rows 3} "body"]))))
+  (testing ":value on other tags stays an (escaped) attribute"
+    (is (= "<input value=\"a&lt;b\">"
+           (h/->html [:input {:value "a<b"}])))
+    (is (= "<option value=\"x\">X</option>"
+           (h/->html [:option {:value "x"} "X"])))))
+
 (deftest style-map-test
   "reagent :style map renders to a CSS string for SSR (dual-render style support)."
   (is (= "<div style=\"font-size:10px;color:#fff;\"></div>"

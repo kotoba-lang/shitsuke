@@ -91,6 +91,14 @@ string/vec, boolean attrs (`true` → bare, `false` → dropped), strings (escap
 numbers, nil (skipped), seqs (flattened), `[:hiccup/raw "<svg/>"]` (trusted, not
 escaped). Void tags (`img`/`input`/`br`/…) emit no closing tag.
 
+**`<textarea>` special case:** a `:value` attribute on `:textarea` renders as
+*escaped element content* and no `value=` attribute is emitted
+(`[:textarea {:value "a<b"}]` → `<textarea>a&lt;b</textarea>`). Real HTML has
+no value attribute on textarea; the live (reagent/React) side of the
+dual-render contract needs `:value` as an attribute (value-as-child is read
+only at mount), so the SSR twin translates — pre-filled SSR textareas keep
+working from the same hiccup data.
+
 ## Layer 3 — `shitsuke.style`
 
 - `(class-name component)` → `"shitsuke__<component>"` (stable scoped class; the
@@ -134,8 +142,8 @@ Pure-hiccup primitives returning `[:tag {:class "shitsuke__<component>" …} …
 |---|---|
 | `button` / `icon-button` | `(label opts?)` — `:act`, `:disabled`, `:title`, `:type` |
 | `field` | `(label-text control opts?)` — label + control row |
-| `input` | `(opts)` — `:id`, `:value`, `:placeholder`, `:type`, `:on-input`, `:act` |
-| `textarea` | `(opts)` — `:id`, `:value`, `:rows`, `:on-input`, `:act` |
+| `input` | `(opts)` — `:id`, `:value`, `:placeholder`, `:type`, `:on-input`/`:on-change`, `:act`, `:class`, + full attr passthrough |
+| `textarea` | `(opts)` — same as `input` plus `:rows` (default 6, no `:type`) |
 | `select` | `(options opts)` — `options` = `[ [value label] … ]`, `:value`, `:on-change`, `:act` |
 | `card` | `(body opts?)` — `:class`, `:id` |
 | `toolbar` | `(actions opts?)` — horizontal action row |
@@ -147,6 +155,24 @@ Pure-hiccup primitives returning `[:tag {:class "shitsuke__<component>" …} …
 wraps it into `:on-click #(rf/dispatch [act …])`; on SSR the caller emits
 `data-act="<act>"` and a thin enhancer dispatches on click (mangaka
 `wire-lang-switch!` pattern).
+
+**Controlled-input `:on-change` contract (`input`/`textarea`):** the caller
+API accepts `:on-input`, but the emitted hiccup carries the handler as
+`:on-change`. React's `onChange` on text controls fires on the native `input`
+event — identical per-keystroke semantics — and the rename is what engages
+reagent's async-rendering-safe controlled-input path
+(`reagent.impl.input/input-render-setup`), which only activates for
+`value` + `onChange`. With `:value` + `:on-input`, reagent's rAF-batched
+rendering makes React restore the DOM to the stale last-rendered value after
+every input event, losing all but the last keystroke at normal typing speed
+(root-caused downstream in liquid-glass-ui PR #3 / net-babiniku, reagent
+1.2.0 + React 18). An explicit caller `:on-change` always wins; when both are
+given, `:on-input` is kept as-is alongside. `textarea` passes `:value` as an
+*attribute* (value-as-child is read by React only at mount, after which the
+field silently stops following app state); `shitsuke.hiccup/->html` translates
+it back to element content for SSR (see Layer 2). Both controls pass all
+other caller attrs through untouched (`:disabled`, `:aria-*`, `:maxLength`,
+`:on-key-down`, …) and return pure data — equal opts give `=` hiccup.
 
 ## Styling contract (shadow-css :pages build)
 

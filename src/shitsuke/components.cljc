@@ -58,28 +58,69 @@
       (when label-text [:label {:for for-id} label-text])
       control])))
 
+(defn- control-attrs
+  "Shared attrs builder for the native text controls (`input`/`textarea`).
+
+  - A caller `:on-input` is re-attached as `:on-change` when no `:on-change`
+    is given (kept as-is when the caller wired both — an explicit `:on-change`
+    always wins, never clobbered). React's `onChange` on text controls fires
+    on the native `input` event, so the caller-visible semantics
+    (per-keystroke, `(.. e -target -value)`) are identical — but the rename
+    matters under reagent: reagent's async-rendering-safe controlled-input
+    path (reagent.impl.input/input-render-setup) only engages when the props
+    carry BOTH `value` and `onChange`. With `:value` + `:on-input` the control
+    is a plain React controlled input under reagent's rAF-batched re-rendering:
+    after every keystroke React restores the DOM to the last-*rendered* (stale)
+    value, so any keystroke landing before the next render is typed into a
+    reverted field and everything but the last keystroke is lost. Reproduced
+    against reagent 1.2.0/React 18; root-caused downstream in
+    kotoba-lang/liquid-glass-ui PR #3 (net-babiniku text fields).
+  - Every other caller opt passes through untouched (`:on-key-down`,
+    `:disabled`, `:aria-label`, `:maxLength`, ...); `:class` is appended to
+    the base `shitsuke__<component>` class; `:act` maps to `:data-act`.
+  - Pure data in → pure data out: equal opts produce `=` hiccup.
+
+  `base` is the control-specific leading attrs (:id/:class/:type/:rows),
+  passed pre-built so the emitted attribute order — and therefore the SSR
+  HTML string — stays stable."
+  [opts base]
+  (let [{:keys [value placeholder on-input on-change act]} opts]
+    (merge (assoc base
+                  :value (or value "")
+                  :placeholder placeholder
+                  :on-change (or on-change on-input)
+                  :on-input (when on-change on-input)
+                  :data-act (some-> act act->str))
+           (dissoc opts :id :class :value :placeholder :type :rows
+                   :on-input :on-change :act))))
+
 (defn input
-  "Text input. opts: :id, :value, :placeholder, :type, :on-input (cljs), :act (ssr)."
+  "Text input. opts: :id, :value, :placeholder, :type, :on-input (cljs — see
+  `control-attrs`: attached to the hiccup as :on-change so reagent's
+  async-safe controlled-input path engages; an explicit :on-change wins),
+  :act (ssr), :class, plus full attr passthrough (:disabled, :aria-*, ...)."
   ([opts]
-   (let [{:keys [id value placeholder type on-input act]} opts]
-     [:input {:id id
-              :class (s/class-name :input)
-              :type (or type "text")
-              :value (or value "")
-              :placeholder placeholder
-              :on-input on-input
-              :data-act (some-> act act->str)}])))
+   (let [{:keys [id type class]} opts]
+     [:input (control-attrs opts
+                            {:id id
+                             :class (str (s/class-name :input)
+                                         (when class (str " " class)))
+                             :type (or type "text")})])))
 
 (defn textarea
+  "Textarea. Same opts contract as `input` (plus :rows, default 6; no :type).
+  :value rides as an *attribute* (not element content) so reagent keeps the
+  control following app state — value-as-child is read by React only at mount
+  and the field silently stops being controlled. For SSR,
+  shitsuke.hiccup/->html special-cases <textarea>: a :value attribute renders
+  as escaped element content (real HTML has no value attribute on textarea)."
   ([opts]
-   (let [{:keys [id value rows placeholder on-input act]} opts]
-     [:textarea {:id id
-                 :class (s/class-name :textarea)
-                 :rows (or rows 6)
-                 :placeholder placeholder
-                 :on-input on-input
-                 :data-act (some-> act act->str)}
-      (or value "")])))
+   (let [{:keys [id rows class]} opts]
+     [:textarea (control-attrs opts
+                               {:id id
+                                :class (str (s/class-name :textarea)
+                                            (when class (str " " class)))
+                                :rows (or rows 6)})])))
 
 (defn select
   "`options` is a vec of [value label] pairs. opts: :id, :value, :on-change, :act."
