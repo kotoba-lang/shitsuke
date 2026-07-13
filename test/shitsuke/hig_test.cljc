@@ -28,6 +28,55 @@
     (is (= "var(--hig-font-text)"
            (get-in hig/default-hig-tokens [:hig/text :headline :font-family])))))
 
+(deftest display-scale-test
+  (testing "display scale styles present, largest first"
+    (is (= [:display3 :display2 :display1] hig/display-style-order))
+    (is (= (set hig/display-style-order) (set (keys hig/display-text-styles)))))
+  (testing "Apple's 11 text styles stay untouched (display scale is additive)"
+    (is (= 11 (count hig/text-styles)))
+    (is (not-any? (set hig/display-style-order) hig/text-style-order)))
+  (testing "fluid clamp() font sizes (min = 62.5% of max, 640->1120px ramp)"
+    (is (= "clamp(40px, 5vw + 8px, 64px)"
+           (get-in hig/display-text-styles [:display3 :font-size])))
+    (is (= "clamp(30px, 3.75vw + 6px, 48px)"
+           (get-in hig/display-text-styles [:display2 :font-size])))
+    (is (= "clamp(25px, 3.125vw + 5px, 40px)"
+           (get-in hig/display-text-styles [:display1 :font-size]))))
+  (testing "line-height tracks the fluid size; weight 700; tight tracking"
+    (doseq [style hig/display-style-order]
+      (is (= "calc(1em + 4px)"
+             (get-in hig/display-text-styles [style :line-height]))
+          (str style " line-height"))
+      (is (= 700 (get-in hig/display-text-styles [style :font-weight]))
+          (str style " font-weight")))
+    (is (= "-0.02em" (get-in hig/display-text-styles [:display3 :letter-spacing])))
+    (is (= "-0.015em" (get-in hig/display-text-styles [:display2 :letter-spacing])))
+    (is (= "-0.01em" (get-in hig/display-text-styles [:display1 :letter-spacing]))))
+  (testing "merged into :hig/text with the display font stack"
+    (doseq [style hig/display-style-order]
+      (is (= "var(--hig-font-display)"
+             (get-in hig/default-hig-tokens [:hig/text style :font-family]))
+          (str style " font-family"))))
+  (testing "vars emitted with the clamp() strings"
+    (let [css (hig/css-variables)]
+      (is (str/includes? css "--hig-text-display3-font-size: clamp(40px, 5vw + 8px, 64px);"))
+      (is (str/includes? css "--hig-text-display2-font-size: clamp(30px, 3.75vw + 6px, 48px);"))
+      (is (str/includes? css "--hig-text-display1-font-size: clamp(25px, 3.125vw + 5px, 40px);"))
+      (is (str/includes? css "--hig-text-display3-line-height: calc(1em + 4px);"))
+      (is (str/includes? css "--hig-text-display3-letter-spacing: -0.02em;"))))
+  (testing ".hig-display1/2/3 utility classes emitted"
+    (doseq [style hig/display-style-order]
+      (is (str/includes? hig/text-style-classes (str ".hig-" (name style) " {"))
+          (str "missing class for " style)))
+    (is (str/includes? hig/text-style-classes
+                       "font-size: var(--hig-text-display3-font-size);"))
+    (is (str/includes? hig/text-style-classes
+                       "letter-spacing: var(--hig-text-display3-letter-spacing, normal);")))
+  (testing "display styles are opt-in: base-css h1 stays :large-title"
+    (let [css (hig/base-css)]
+      (is (str/includes? css "h1 {\n  font-family: var(--hig-text-large-title-font-family);"))
+      (is (not (str/includes? css "display3"))))))
+
 (deftest font-tokens-test
   (testing ":hig/font token group carries the three stacks (resolved values)"
     (is (= hig/font-family-text

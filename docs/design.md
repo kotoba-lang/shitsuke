@@ -43,7 +43,9 @@ dark override for color/palette):
  ;; every text style (and code/pre + .hig-mono) that references it.
  :hig/text     {<style> {:font-family ... :font-size ... :line-height ... :font-weight ...}}
  ;; the 11 Apple text styles: :large-title :title1 :title2 :title3 :headline
- ;; :body :callout :subheadline :footnote :caption1 :caption2.
+ ;; :body :callout :subheadline :footnote :caption1 :caption2,
+ ;; PLUS the opt-in display scale above :large-title: :display3 :display2
+ ;; :display1 (see "Display scale" below).
  ;; >= 20px use the SF Pro Display stack, < 20px the SF Pro Text stack;
  ;; per-style :font-family values are var(--hig-font-display) /
  ;; var(--hig-font-text) references into :hig/font (resolved values unchanged).
@@ -60,6 +62,30 @@ Var naming: `--hig-<group>-<token>` (`--hig-font-mono`, `--hig-color-label`,
 `--hig-radius-md`, `--hig-spacing-content-margin`, `--hig-hairline`); nested
 text styles expand per-prop (`--hig-text-body-font-size`).
 
+### Display scale — `:display1/2/3` (fluid, opt-in)
+
+Hero/marketing sizes above `:large-title` — the web analogue of the larger
+display styles some Apple platforms add (visionOS/tvOS extra-large titles).
+Source data is `display-text-styles` (order: `display-style-order`, largest
+first), merged into `:hig/text`; all three are weight 700 on the display
+stack with **fluid** `clamp()` font sizes, so apps never hand-write viewport
+math for hero type:
+
+| style       | font-size                        | at max | line-height       | letter-spacing |
+|-------------|----------------------------------|--------|-------------------|----------------|
+| `:display3` | `clamp(40px, 5vw + 8px, 64px)`   | 64px   | `calc(1em + 4px)` | `-0.02em`      |
+| `:display2` | `clamp(30px, 3.75vw + 6px, 48px)`| 48px   | `calc(1em + 4px)` | `-0.015em`     |
+| `:display1` | `clamp(25px, 3.125vw + 5px, 40px)`| 40px  | `calc(1em + 4px)` | `-0.01em`      |
+
+Fluid formula (max size `M`): `clamp(5M/8, (5M/64)vw + M/8, M)` — min is
+62.5% of max, ramping linearly from min at a 640px viewport to max at 1120px.
+Line-height `calc(1em + 4px)` tracks the fluid size and equals the design
+pairs at max (64/68, 48/52, 40/44). Values are pure data (plain CSS strings
+in the token map), emitted as `--hig-text-display3-*` etc.
+
+Opt-in only: `base-css` keeps `h1` at `:large-title`; use `.hig-display1/2/3`
+utility classes (or the vars) explicitly for hero/marketing type.
+
 API:
 - `semantic-colors` / `system-palette` — token → `{:light <css> :dark <css>}` source data.
 - `(resolve-hig-tokens overrides?)` / `(resolve-dark-hig-tokens overrides?)` — deep-merged token maps.
@@ -72,9 +98,10 @@ API:
 - `(base-css overrides?)` — element defaults (body/h1–h4/p/small/code/a/hr/
   `::selection`/`:focus-visible`/reduced-motion) in `@layer kotoba.hig`;
   code/pre consume `var(--hig-font-mono)` (no inlined stack).
-- `text-style-classes` — `.hig-large-title` … `.hig-caption2` utilities plus
-  `.hig-mono` (mono stack + footnote size, the code/pre typography treatment),
-  also layered.
+- `text-style-classes` — `.hig-display3` … `.hig-display1` (fluid display
+  scale) and `.hig-large-title` … `.hig-caption2` utilities plus `.hig-mono`
+  (mono stack + footnote size, the code/pre typography treatment), also
+  layered.
 - `(hig-css overrides? dark-overrides?)` — the full bundle in order:
   layer order → vars → dark vars → base CSS → text-style classes.
 - `(inline-style css?)` / `(inline-style-hiccup css?)` — `<style>` string /
