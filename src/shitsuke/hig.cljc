@@ -26,15 +26,16 @@
 ;; Font stacks
 
 (def font-family-text
-  "SF Pro Text stack (HIG text sizes, < 20px)."
+  "SF Pro Text stack (HIG text sizes, < 20px). Emitted as `--hig-font-text`."
   "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"Hiragino Sans\", \"Noto Sans JP\", system-ui, sans-serif")
 
 (def font-family-display
-  "SF Pro Display stack (HIG display sizes, >= 20px)."
+  "SF Pro Display stack (HIG display sizes, >= 20px). Emitted as
+  `--hig-font-display`."
   "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", \"Hiragino Sans\", \"Noto Sans JP\", system-ui, sans-serif")
 
 (def font-family-mono
-  "Monospace stack (code/pre)."
+  "Monospace stack (code/pre, `.hig-mono`). Emitted as `--hig-font-mono`."
   "ui-monospace, \"SF Mono\", SFMono-Regular, Menlo, Consolas, monospace")
 
 ;; ---------------------------------------------------------------------------
@@ -120,15 +121,24 @@
 
 (def default-hig-tokens
   "The HIG token set, light appearance. One map:
-  {:hig/text {...} :hig/color {...} :hig/palette {...}
-   :hig/spacing {...} :hig/radius {...} :hig/hairline \"0.5px\"}"
-  {:hig/text
+  {:hig/font {...} :hig/text {...} :hig/color {...} :hig/palette {...}
+   :hig/spacing {...} :hig/radius {...} :hig/hairline \"0.5px\"}
+
+  :hig/font is the three font stacks as first-class tokens
+  (--hig-font-text / --hig-font-display / --hig-font-mono); the per-style
+  :hig/text font-family values reference them via var(), so overriding a
+  stack in one place re-fonts every style that uses it."
+  {:hig/font
+   {:text    font-family-text
+    :display font-family-display
+    :mono    font-family-mono}
+   :hig/text
    (into {}
          (map (fn [[style props]]
                 [style (assoc props :font-family
                               (if (contains? display-styles style)
-                                font-family-display
-                                font-family-text))]))
+                                "var(--hig-font-display)"
+                                "var(--hig-font-text)"))]))
          text-styles)
    :hig/color   (pick-appearance semantic-colors :light)
    :hig/palette (pick-appearance system-palette :light)
@@ -267,7 +277,7 @@
     "p, ul, ol {\n  margin: 0 0 16px;\n}\n"
     "small {\n" (text-style-props :footnote) "\n}\n"
     "code, pre {\n"
-    "  font-family: " font-family-mono ";\n"
+    "  font-family: var(--hig-font-mono);\n"
     "  font-size: var(--hig-text-footnote-font-size);\n"
     "  background: var(--hig-color-secondary-system-background);\n"
     "  border-radius: var(--hig-radius-xs);\n"
@@ -298,12 +308,17 @@
 
 (def text-style-classes
   "Utility class rules `.hig-large-title` ... `.hig-caption2` (one per Apple
-  text style), inside `@layer kotoba.hig`."
+  text style) plus `.hig-mono` (mono stack + footnote size, the code/pre
+  typography treatment), inside `@layer kotoba.hig`."
   (str "@layer kotoba.hig {\n"
        (str/join "\n"
                  (for [style text-style-order]
                    (str ".hig-" (name style) " {\n"
                         (text-style-props style) "\n}")))
+       "\n.hig-mono {\n"
+       "  font-family: var(--hig-font-mono);\n"
+       "  font-size: var(--hig-text-footnote-font-size);\n"
+       "}"
        "\n}"))
 
 ;; ---------------------------------------------------------------------------

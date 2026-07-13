@@ -48,12 +48,15 @@ shitsuke = tokens + hiccup + style + re-frame seam + components + editor kernels
 ## `shitsuke.hig` — Apple-HIG base layer
 
 `shitsuke.hig` is the single source of truth for Apple Human Interface
-Guidelines-grade typography (the 11 UIKit text styles), semantic colors
-(light + dark), system palette, 4pt-grid spacing, radius, and element-level
-base CSS. It emits `--hig-*` CSS custom properties and element rules inside
-the CSS cascade layer `kotoba.hig`
+Guidelines-grade typography (the 11 UIKit text styles), font stacks
+(`--hig-font-text` / `--hig-font-display` / `--hig-font-mono`), semantic
+colors (light + dark), system palette, 4pt-grid spacing, radius, and
+element-level base CSS. It emits `--hig-*` CSS custom properties and element
+rules inside the CSS cascade layer `kotoba.hig`
 (`(hig-css overrides dark-overrides)` = the full bundle; the order
-declaration is `@layer kotoba.hig, kotoba.glass;`).
+declaration is `@layer kotoba.hig, kotoba.glass;`). Monospace UI (code
+panes, EDN editors) uses `var(--hig-font-mono)` or the `.hig-mono` utility
+class (mono stack + footnote size) — no hand-written mono stacks in apps.
 
 - **liquid-glass-ui** fills the `kotoba.glass` layer with its material
   (translucency/vibrancy) styles on top of this base.

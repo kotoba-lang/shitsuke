@@ -37,10 +37,16 @@ Token groups (one map, `default-hig-tokens`; `dark-hig-tokens` is the partial
 dark override for color/palette):
 
 ```clojure
-{:hig/text     {<style> {:font-family ... :font-size ... :line-height ... :font-weight ...}}
+{:hig/font     {:text <stack> :display <stack> :mono <stack>}
+ ;; the three font stacks as first-class tokens: --hig-font-text /
+ ;; --hig-font-display / --hig-font-mono. Overriding a stack here re-fonts
+ ;; every text style (and code/pre + .hig-mono) that references it.
+ :hig/text     {<style> {:font-family ... :font-size ... :line-height ... :font-weight ...}}
  ;; the 11 Apple text styles: :large-title :title1 :title2 :title3 :headline
  ;; :body :callout :subheadline :footnote :caption1 :caption2.
- ;; >= 20px use the SF Pro Display stack, < 20px the SF Pro Text stack.
+ ;; >= 20px use the SF Pro Display stack, < 20px the SF Pro Text stack;
+ ;; per-style :font-family values are var(--hig-font-display) /
+ ;; var(--hig-font-text) references into :hig/font (resolved values unchanged).
  :hig/color    {<token> <css-color>}   ; UIKit semantic colors (:label, :separator,
                                        ; :system-background, ..., :tint = accent/theme
                                        ; override point)
@@ -50,9 +56,9 @@ dark override for color/palette):
  :hig/hairline "0.5px"}
 ```
 
-Var naming: `--hig-<group>-<token>` (`--hig-color-label`, `--hig-radius-md`,
-`--hig-spacing-content-margin`, `--hig-hairline`); nested text styles expand
-per-prop (`--hig-text-body-font-size`).
+Var naming: `--hig-<group>-<token>` (`--hig-font-mono`, `--hig-color-label`,
+`--hig-radius-md`, `--hig-spacing-content-margin`, `--hig-hairline`); nested
+text styles expand per-prop (`--hig-text-body-font-size`).
 
 API:
 - `semantic-colors` / `system-palette` — token → `{:light <css> :dark <css>}` source data.
@@ -64,8 +70,11 @@ API:
   (light reset, so forced light out-specifies the dark media query).
 - `layer-order-css` — `"@layer kotoba.hig, kotoba.glass;"`.
 - `(base-css overrides?)` — element defaults (body/h1–h4/p/small/code/a/hr/
-  `::selection`/`:focus-visible`/reduced-motion) in `@layer kotoba.hig`.
-- `text-style-classes` — `.hig-large-title` … `.hig-caption2` utilities, also layered.
+  `::selection`/`:focus-visible`/reduced-motion) in `@layer kotoba.hig`;
+  code/pre consume `var(--hig-font-mono)` (no inlined stack).
+- `text-style-classes` — `.hig-large-title` … `.hig-caption2` utilities plus
+  `.hig-mono` (mono stack + footnote size, the code/pre typography treatment),
+  also layered.
 - `(hig-css overrides? dark-overrides?)` — the full bundle in order:
   layer order → vars → dark vars → base CSS → text-style classes.
 - `(inline-style css?)` / `(inline-style-hiccup css?)` — `<style>` string /

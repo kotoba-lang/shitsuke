@@ -22,11 +22,24 @@
   (testing "all 11 Apple text styles present"
     (is (= 11 (count hig/text-styles)))
     (is (= (set hig/text-style-order) (set (keys hig/text-styles)))))
-  (testing "display stack for >= 20px, text stack below"
-    (is (str/includes? (get-in hig/default-hig-tokens [:hig/text :title3 :font-family])
-                       "SF Pro Display"))
-    (is (str/includes? (get-in hig/default-hig-tokens [:hig/text :headline :font-family])
-                       "SF Pro Text"))))
+  (testing "display stack for >= 20px, text stack below (via --hig-font-* vars)"
+    (is (= "var(--hig-font-display)"
+           (get-in hig/default-hig-tokens [:hig/text :title3 :font-family])))
+    (is (= "var(--hig-font-text)"
+           (get-in hig/default-hig-tokens [:hig/text :headline :font-family])))))
+
+(deftest font-tokens-test
+  (testing ":hig/font token group carries the three stacks (resolved values)"
+    (is (= hig/font-family-text
+           (get-in hig/default-hig-tokens [:hig/font :text])))
+    (is (= hig/font-family-display
+           (get-in hig/default-hig-tokens [:hig/font :display])))
+    (is (= hig/font-family-mono
+           (get-in hig/default-hig-tokens [:hig/font :mono]))))
+  (testing "stacks contain the expected primary fonts"
+    (is (str/includes? hig/font-family-display "SF Pro Display"))
+    (is (str/includes? hig/font-family-text "SF Pro Text"))
+    (is (str/includes? hig/font-family-mono "ui-monospace"))))
 
 (deftest css-variables-test
   (let [css (hig/css-variables)]
@@ -36,6 +49,13 @@
     (is (str/includes? css "--hig-palette-indigo: #5856D6;"))
     (is (str/includes? css "--hig-text-body-font-size: 17px;"))
     (is (str/includes? css "--hig-text-large-title-line-height: 41px;"))
+    (testing "font-stack vars emitted with the literal stacks"
+      (is (str/includes? css (str "--hig-font-text: " hig/font-family-text ";")))
+      (is (str/includes? css (str "--hig-font-display: " hig/font-family-display ";")))
+      (is (str/includes? css (str "--hig-font-mono: " hig/font-family-mono ";"))))
+    (testing "per-style font-family vars reference the stack vars (resolved values unchanged)"
+      (is (str/includes? css "--hig-text-body-font-family: var(--hig-font-text);"))
+      (is (str/includes? css "--hig-text-large-title-font-family: var(--hig-font-display);")))
     (is (str/includes? css "--hig-spacing-content-margin: 16px;"))
     (is (str/includes? css "--hig-radius-capsule: 999px;"))
     (is (str/includes? css "--hig-hairline: 0.5px;"))))
@@ -78,6 +98,9 @@
     (is (str/includes? css "background: var(--hig-color-system-background);"))
     (is (str/includes? css "color: var(--hig-color-label);"))
     (is (str/includes? css "-webkit-font-smoothing: antialiased;"))
+    (testing "code/pre consume the mono var instead of an inlined stack"
+      (is (str/includes? css "font-family: var(--hig-font-mono);"))
+      (is (not (str/includes? css hig/font-family-mono))))
     (is (str/includes? css "margin: 0 0 12px;"))
     (is (str/includes? css "border-top: var(--hig-hairline) solid var(--hig-color-separator);"))
     (is (str/includes? css "color-mix(in srgb, var(--hig-color-tint) 25%, transparent)"))
@@ -90,7 +113,10 @@
     (doseq [style hig/text-style-order]
       (is (str/includes? css (str ".hig-" (name style) " {"))
           (str "missing class for " style)))
-    (is (str/includes? css "font-size: var(--hig-text-caption2-font-size);"))))
+    (is (str/includes? css "font-size: var(--hig-text-caption2-font-size);"))
+    (testing ".hig-mono utility: mono stack + footnote size"
+      (is (str/includes? css ".hig-mono {"))
+      (is (str/includes? css ".hig-mono {\n  font-family: var(--hig-font-mono);\n  font-size: var(--hig-text-footnote-font-size);\n}")))))
 
 (deftest hig-css-bundle-test
   (let [css (hig/hig-css)]
@@ -101,7 +127,9 @@
       (is (str/includes? css "@media (prefers-color-scheme: dark)"))
       (is (str/includes? css ":root[data-appearance=\"light\"]"))
       (is (str/includes? css "text-rendering: optimizeLegibility;"))
-      (is (str/includes? css ".hig-large-title {")))))
+      (is (str/includes? css ".hig-large-title {"))
+      (is (str/includes? css (str "--hig-font-mono: " hig/font-family-mono ";")))
+      (is (str/includes? css ".hig-mono {")))))
 
 (deftest inline-style-test
   (is (str/starts-with? (hig/inline-style "x") "<style>"))
