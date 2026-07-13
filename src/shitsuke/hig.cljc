@@ -2,7 +2,8 @@
   "Apple-HIG semantic token layer + base CSS.
 
   THE single source of truth for Apple Human Interface Guidelines-grade
-  typography (the 11 UIKit text styles), semantic colors (light + dark),
+  typography (the 11 UIKit text styles + an opt-in fluid display scale
+  :display1-3 above :large-title), semantic colors (light + dark),
   system palette, spacing (4pt grid), radius, and element-level base CSS.
   Everything is emitted as `--hig-*` CSS custom properties and element rules
   inside the CSS cascade layer `kotoba.hig`.
@@ -63,6 +64,53 @@
 (def ^:private display-styles
   "Styles at >= 20px use the SF Pro Display stack; the rest use SF Pro Text."
   #{:large-title :title1 :title2 :title3})
+
+;; ---------------------------------------------------------------------------
+;; Display scale — hero/marketing sizes above :large-title (web-only, opt-in)
+
+(def display-style-order
+  "The display-scale styles, largest first (stable emission/class order).
+  These sit ABOVE the 11 Apple text styles: the web analogue of the larger
+  display styles some Apple platforms add (e.g. visionOS/tvOS extra-large
+  titles). Opt-in only — `base-css` keeps h1 at :large-title; use the
+  `.hig-display*` classes (or the `--hig-text-display*-*` vars) explicitly."
+  [:display3 :display2 :display1])
+
+(def display-text-styles
+  "Display-scale text styles for hero/marketing typography. All weight 700 on
+  the SF Pro Display stack, with FLUID font sizes so one token works from
+  phone to desktop without hand-written clamp()s in apps.
+
+  Fluid formula (per style, max size M in px):
+
+    font-size: clamp(5M/8, (5M/64)vw + M/8, M)
+
+  i.e. min = 62.5% of max; the preferred value ramps linearly from min at a
+  640px viewport to max at a 1120px viewport. Concretely:
+
+    :display3  clamp(40px, 5vw + 8px, 64px)       ; 64/68
+    :display2  clamp(30px, 3.75vw + 6px, 48px)    ; 48/52
+    :display1  clamp(25px, 3.125vw + 5px, 40px)   ; 40/44
+
+  Line-height is `calc(1em + 4px)` so it tracks the fluid font-size and
+  equals the design pairs at max size (68px, 52px, 44px). Letter-spacing
+  tightens as size grows (display type is tracked tighter):
+  :display1 -0.01em, :display2 -0.015em, :display3 -0.02em.
+
+  Pure data — values are plain CSS strings; merged into the :hig/text token
+  group by `default-hig-tokens` (vars emit as `--hig-text-display3-*` etc.)."
+  {:display3 {:font-size      "clamp(40px, 5vw + 8px, 64px)"
+              :line-height    "calc(1em + 4px)"
+              :font-weight    700
+              :letter-spacing "-0.02em"}
+   :display2 {:font-size      "clamp(30px, 3.75vw + 6px, 48px)"
+              :line-height    "calc(1em + 4px)"
+              :font-weight    700
+              :letter-spacing "-0.015em"}
+   :display1 {:font-size      "clamp(25px, 3.125vw + 5px, 40px)"
+              :line-height    "calc(1em + 4px)"
+              :font-weight    700
+              :letter-spacing "-0.01em"}})
 
 ;; ---------------------------------------------------------------------------
 ;; Semantic colors + system palette (Apple's published UIKit values)
@@ -133,13 +181,16 @@
     :display font-family-display
     :mono    font-family-mono}
    :hig/text
-   (into {}
+   (into (into {}
+               (map (fn [[style props]]
+                      [style (assoc props :font-family
+                                    (if (contains? display-styles style)
+                                      "var(--hig-font-display)"
+                                      "var(--hig-font-text)"))]))
+               text-styles)
          (map (fn [[style props]]
-                [style (assoc props :font-family
-                              (if (contains? display-styles style)
-                                "var(--hig-font-display)"
-                                "var(--hig-font-text)"))]))
-         text-styles)
+                [style (assoc props :font-family "var(--hig-font-display)")]))
+         display-text-styles)
    :hig/color   (pick-appearance semantic-colors :light)
    :hig/palette (pick-appearance system-palette :light)
    :hig/spacing
@@ -307,12 +358,14 @@
     "}")))
 
 (def text-style-classes
-  "Utility class rules `.hig-large-title` ... `.hig-caption2` (one per Apple
-  text style) plus `.hig-mono` (mono stack + footnote size, the code/pre
-  typography treatment), inside `@layer kotoba.hig`."
+  "Utility class rules `.hig-display3` ... `.hig-display1` (fluid display
+  scale, opt-in — base-css keeps h1 at :large-title) and `.hig-large-title`
+  ... `.hig-caption2` (one per Apple text style) plus `.hig-mono` (mono stack
+  + footnote size, the code/pre typography treatment), inside
+  `@layer kotoba.hig`."
   (str "@layer kotoba.hig {\n"
        (str/join "\n"
-                 (for [style text-style-order]
+                 (for [style (concat display-style-order text-style-order)]
                    (str ".hig-" (name style) " {\n"
                         (text-style-props style) "\n}")))
        "\n.hig-mono {\n"
