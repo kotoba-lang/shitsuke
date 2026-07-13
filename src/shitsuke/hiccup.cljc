@@ -93,9 +93,18 @@
                              [(first body) (rest body)]
                              [{} body])
           ;; tag-sugar classes/id + attr :class merge (space-joined, both win)
-          attrs (merge-with (fn [a b] (str a " " b)) base attrs)]
+          attrs (merge-with (fn [a b] (str a " " b)) base attrs)
+          ;; <textarea> special case: real HTML has no value attribute on
+          ;; textarea — the pre-filled text is the element *content*. The live
+          ;; (reagent/React) side of the dual-render contract needs :value as
+          ;; an attribute (value-as-child is read only at mount), so the SSR
+          ;; twin translates: render :value as escaped content, emit no value=.
+          textarea-value (when (= tag "textarea") (:value attrs))
+          attrs (cond-> attrs (= tag "textarea") (dissoc :value))]
       (conj! sb (str "<" tag (render-attrs attrs) ">"))
       (when-not (contains? void-tags tag)
+        (when (some? textarea-value)
+          (conj! sb (esc textarea-value)))
         (reduce (fn [s c] (render-node c s)) sb children)
         (conj! sb (str "</" tag ">")))
       sb)

@@ -45,6 +45,70 @@
   (is (= "<textarea id=\"t\" class=\"shitsuke__textarea\" rows=\"6\">hello</textarea>"
          (html (c/textarea {:id "t" :value "hello"})))))
 
+(deftest controlled-input-on-change-test
+  (testing "a caller :on-input is re-attached as :on-change on the emitted
+            hiccup -- reagent's async-rendering-safe controlled-input path
+            (reagent.impl.input) only engages for value + onChange; with
+            :value + :on-input React restores the DOM to the stale rendered
+            value after every keystroke under reagent's rAF-batched rendering
+            and all but the last keystroke is lost (root-caused downstream in
+            liquid-glass-ui PR #3 / net-babiniku, reagent 1.2.0 + React 18)."
+    (let [f (fn [_] :typed)]
+      (doseq [[nm hic] [["input" (c/input {:value "v" :on-input f})]
+                        ["textarea" (c/textarea {:value "v" :on-input f})]]]
+        (let [attrs (second hic)]
+          (testing nm
+            (is (= f (:on-change attrs)) ":on-input rides as :on-change")
+            (is (nil? (:on-input attrs)) "no stray :on-input beside :value"))))))
+  (testing "an explicit caller :on-change wins -- never clobbered by :on-input"
+    (let [oc (fn [_] :change) oi (fn [_] :input)]
+      (doseq [[nm hic] [["input" (c/input {:value "v" :on-change oc :on-input oi})]
+                        ["textarea" (c/textarea {:value "v" :on-change oc :on-input oi})]]]
+        (let [attrs (second hic)]
+          (testing nm
+            (is (= oc (:on-change attrs)))
+            (is (= oi (:on-input attrs)) "both wired: caller's :on-input kept as-is"))))
+      (testing ":on-change alone passes straight through"
+        (is (= oc (:on-change (second (c/input {:value "v" :on-change oc})))))
+        (is (= oc (:on-change (second (c/textarea {:value "v" :on-change oc}))))))))
+  (testing "emitted hiccup is pure data -- equal args give = hiccup across calls"
+    (let [f (fn [_] :typed)]
+      (is (= (c/input {:id "a" :value "x" :on-input f})
+             (c/input {:id "a" :value "x" :on-input f})))
+      (is (= (c/textarea {:id "a" :value "x" :on-input f})
+             (c/textarea {:id "a" :value "x" :on-input f}))))))
+
+(deftest textarea-value-as-attribute-test
+  (testing ":value rides as an attribute, not element content -- React reads
+            value-as-child only at mount, after which the textarea silently
+            stops following app state (the second half of the liquid-glass-ui
+            PR #3 root cause)."
+    (let [hic (c/textarea {:id "t" :value "hello"})]
+      (is (= 2 (count hic)) "[:textarea attrs] -- no content child")
+      (is (= "hello" (:value (second hic))))))
+  (testing "no :value given -> controlled empty string, same as input"
+    (is (= "" (:value (second (c/textarea {:id "t"})))))
+    (is (= "" (:value (second (c/input {:id "i"}))))))
+  (testing "SSR twin still renders pre-filled content, escaped, no value= attr"
+    (is (= "<textarea class=\"shitsuke__textarea\" rows=\"6\">a&lt;b</textarea>"
+           (html (c/textarea {:value "a<b"}))))))
+
+(deftest control-attr-passthrough-test
+  (testing "full attr passthrough on input/textarea (:disabled :aria-* :maxLength
+            :on-key-down ...) stays intact through the on-change rewiring"
+    (let [attrs (second (c/input {:value "v" :disabled true :maxLength 10
+                                  :aria-label "Name" :on-key-down :kd}))]
+      (is (= true (:disabled attrs)))
+      (is (= 10 (:maxLength attrs)))
+      (is (= "Name" (:aria-label attrs)))
+      (is (= :kd (:on-key-down attrs))))
+    (let [attrs (second (c/textarea {:value "v" :aria-describedby "hint"}))]
+      (is (= "hint" (:aria-describedby attrs)))))
+  (testing "caller :class is appended to the base class (button-test's :class
+            bug, same guarantee on the text controls)"
+    (is (= "shitsuke__input my-in" (:class (second (c/input {:class "my-in"})))))
+    (is (= "shitsuke__textarea my-ta" (:class (second (c/textarea {:class "my-ta"})))))))
+
 (deftest select-test
   (let [v (c/select [["a" "A"] ["b" "B"]] {:value "a"})]
     (is (= "<select class=\"shitsuke__select\"><option value=\"a\" selected>A</option><option value=\"b\">B</option></select>"
