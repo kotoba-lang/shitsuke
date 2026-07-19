@@ -1,9 +1,16 @@
 {:paths ["src" "resources"]
- ;; Zero third-party runtime deps — every namespace is portable .cljc
- ;; (JVM, CLJS, SCI, babashka). real reagent/re-frame/shadow-css are build/dev
- ;; aliases only (consumer picks the host impl via the re-frame.core /
- ;; reagent.core compat shims). Same split as kami-mangaka-reader-clj + slides.
- :deps {}
+ ;; Runtime deps: kotoba-lang/html (html.core) — shitsuke.hiccup delegates its
+ ;; tag/attr/style primitives and RAWTEXT (script/style) breakout-guard to the
+ ;; standalone substrate repo instead of duplicating them (html.core was
+ ;; extracted FROM this namespace; this closes the loop so fixes land once).
+ ;; Everything else is still zero third-party runtime deps — every namespace
+ ;; is portable .cljc (JVM, CLJS, SCI, babashka). real reagent/re-frame/
+ ;; shadow-css are build/dev aliases only (consumer picks the host impl via
+ ;; the re-frame.core / reagent.core compat shims). Same split as
+ ;; kami-mangaka-reader-clj + slides.
+ :deps {io.github.kotoba-lang/html
+        {:git/url "https://github.com/kotoba-lang/html.git"
+         :git/sha "f26595df3aefb543df96181277e1d17753ecaef2"}}
  :aliases
  {:test  {:extra-paths ["test"]
           :extra-deps {io.github.cognitect-labs/test-runner
@@ -16,6 +23,8 @@
                        re-frame/re-frame         {:mvn/version "1.4.3"}}}
   ;; shadow-css class extraction (build-time, same path as slides.build)
   :pages {:extra-deps {com.thheller/shadow-css {:mvn/version "0.6.1"}}}
+  ;; local sibling checkout override, same convention as liquid-glass-ui/kotoba-ui's :local alias
+  :local {:override-deps {io.github.kotoba-lang/html {:local/root "../html"}}}
   ;; clj-kondo as a Clojars lib (no Homebrew/system install needed).
   :lint {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
          :main-opts ["-m" "clj-kondo.main" "--lint" "src" "test"
