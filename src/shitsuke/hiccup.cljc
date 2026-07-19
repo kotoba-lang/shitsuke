@@ -1,5 +1,5 @@
 (ns shitsuke.hiccup
-  "Minimal, dependency-free hiccup → HTML string renderer (.cljc, babashka-safe).
+  "Hiccup → HTML string renderer (.cljc, babashka-safe).
 
   This is the SSR twin of the reagent view contract: the SAME hiccup data that
   reagent renders live in the browser is rendered to an HTML string here for the
@@ -7,74 +7,70 @@
   near-identical emitters that previously lived in kami.mangaka.hiccup and
   slides.hiccup.
 
+  Tag/attribute/style primitives and the RAWTEXT (script/style) breakout-guard
+  are delegated to kotoba-lang/html (html.core) — the standalone substrate repo
+  this implementation was originally extracted into (see that repo's README) —
+  instead of duplicating them here, so fixes land once. The tree-walk itself
+  stays local: html.core's own ->html additionally pretty-prints block-only
+  element children (adds newlines/indentation), which would be a breaking
+  output-format change for this namespace's many downstream consumers that
+  depend on ->html's exact compact-string contract, so shitsuke.hiccup keeps
+  its own compact (no added whitespace) walk and only reuses html.core's
+  primitives + guard logic.
+
   Supported:
     [:tag attrs? & children]            vector node
     keyword tags with .class/#id sugar  :div.a.b#id
     attribute maps                      :class as string/vec, boolean attrs
     strings/numbers                     strings escaped, numbers str'd
     nil / seqs                          nil skipped, seqs flattened
-    [:hiccup/raw \"<svg/>\"]            trusted markup, not escaped"
-  (:require [clojure.string :as str]))
+    [:hiccup/raw \"<svg/>\"]            trusted markup, not escaped
+    <script>/<style> children           RAWTEXT semantics: emitted verbatim
+                                         (not HTML-escaped), [:hiccup/raw ...]
+                                         children unwrapped to their payload,
+                                         and content containing a
+                                         case-insensitive \"</tag\" breakout
+                                         sequence is rejected."
+  (:require [clojure.string :as str]
+            [html.core :as html]))
 
-(defn esc
-  "Escape &, <, >, \" for safe inclusion in HTML text/attribute context."
-  [s]
-  (-> (str s)
-      (str/replace "&" "&amp;")
-      (str/replace "<" "&lt;")
-      (str/replace ">" "&gt;")
-      (str/replace "\"" "&quot;")))
+(def esc
+  "Escape &, <, >, \" for safe inclusion in HTML text/attribute context.
+  Delegates to kotoba-lang/html (html.core/esc)."
+  html/esc)
 
-(def ^:private void-tags
-  #{"area" "base" "br" "col" "embed" "hr" "img" "input"
-    "link" "meta" "param" "source" "track" "wbr"})
-
-(defn- parse-tag
-  "':div.a.b#id' → [\"div\" {:class \"a b\" :id \"id\"}]. Bare keyword → [name {}]."
-  [kw]
-  (let [s (name kw)
-        id      (second (re-find #"#([^.#]+)" s))
-        classes (map second (re-seq #"\.([^.#]+)" s))
-        tag     (or (second (re-find #"^([^.#]+)" s)) "div")]
-    [tag (cond-> {}
-            (seq classes) (assoc :class (str/join " " classes))
-            id            (assoc :id id))]))
-
-(defn- class-str
-  [v]
-  (cond (string? v) v
-        (coll? v)    (str/join " " (filter identity v))
-        :else        (str v)))
-
-(defn- style-map->css
-  "Render a reagent-style :style map {:font-size \"10px\" :color \"#fff\"} as a
-  CSS declaration string `font-size:10px;color:#fff;`. Lets the same hiccup
-  data carry inline styles through both reagent (cljs, map) and ->html (SSR,
-  string). Keys are keyword/string names; nil/false values are skipped."
-  [m]
-  (->> m
-       (keep (fn [[k v]]
-               (when (and v (not (false? v)))
-                 (str (name k) ":" (if (true? v) "true" v) ";"))))
-       (str/join "")))
-
-(defn- render-attrs [attrs]
-  (->> attrs
-       (keep (fn [[k v]]
-               (when (and v (not (false? v)))
-                 (let [k (name k)]
-                   (cond
-                     (= k "class")
-                     (str " " k "=\"" (esc (class-str v)) "\"")
-                     (and (= k "style") (map? v))
-                     (str " " k "=\"" (esc (style-map->css v)) "\"")
-                     (true? v)
-                     (str " " k)
-                     :else
-                     (str " " k "=\"" (esc v) "\""))))))
-       (apply str)))
+(def ^:private void-tags html/void-tags)
+(def ^:private raw-text-tags html/raw-text-tags)
+(def ^:private parse-tag html/parse-tag)
+(def ^:private class-str html/class-str)
+(def ^:private render-attrs html/render-attrs)
 
 (declare ->html)
+
+(defn- raw-text-content
+  "Flatten <script>/<style> children to their verbatim RAWTEXT payload,
+  unwrapping [:hiccup/raw ...] children to their string content -- the
+  long-standing convention wrapped-content callers (css.core/style-node,
+  kototama/web, etc.) already rely on."
+  [children]
+  (apply str (map (fn [c]
+                     (if (and (vector? c) (= :hiccup/raw (first c)))
+                       (str (second c))
+                       (str c)))
+                   children)))
+
+(defn- assert-no-rawtext-breakout!
+  "HTML5 RAWTEXT parsing: a <script>/<style> element terminates at the FIRST
+  literal, case-insensitive \"</tag\" sequence in its content, regardless of
+  surrounding quotes/strings/comments in the raw text -- emitting that
+  sequence verbatim lets a raw payload break out of the element and inject
+  markup after it (a script-context XSS vector)."
+  [tag content]
+  (when (re-find (re-pattern (str "(?i)</" tag)) content)
+    (throw (ex-info (str "shitsuke.hiccup: raw-text content for <" tag "> must not contain \"</" tag "\" "
+                          "case-insensitively -- that sequence terminates the element early "
+                          "per HTML5's RAWTEXT rule and can break out into injected markup")
+                     {:tag tag}))))
 
 (defn- render-node [node sb]
   (cond
@@ -93,7 +89,7 @@
                              [(first body) (rest body)]
                              [{} body])
           ;; tag-sugar classes/id + attr :class merge (space-joined, both win)
-          attrs (merge-with (fn [a b] (str a " " b)) base attrs)
+          attrs (merge-with (fn [a b] (str (class-str a) " " (class-str b))) base attrs)
           ;; <textarea> special case: real HTML has no value attribute on
           ;; textarea — the pre-filled text is the element *content*. The live
           ;; (reagent/React) side of the dual-render contract needs :value as
@@ -103,9 +99,14 @@
           attrs (cond-> attrs (= tag "textarea") (dissoc :value))]
       (conj! sb (str "<" tag (render-attrs attrs) ">"))
       (when-not (contains? void-tags tag)
-        (when (some? textarea-value)
-          (conj! sb (esc textarea-value)))
-        (reduce (fn [s c] (render-node c s)) sb children)
+        (if (contains? raw-text-tags tag)
+          (let [content (raw-text-content children)]
+            (assert-no-rawtext-breakout! tag content)
+            (conj! sb content))
+          (do
+            (when (some? textarea-value)
+              (conj! sb (esc textarea-value)))
+            (reduce (fn [s c] (render-node c s)) sb children)))
         (conj! sb (str "</" tag ">")))
       sb)
     (seq? node) (reduce (fn [s c] (render-node c s)) sb node)
