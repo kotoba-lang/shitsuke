@@ -10,7 +10,7 @@
  ;; kami-mangaka-reader-clj + slides.
  :deps {io.github.kotoba-lang/html
         {:git/url "https://github.com/kotoba-lang/html.git"
-         :git/sha "f26595df3aefb543df96181277e1d17753ecaef2"}}
+         :git/sha "ad835e22c7201a0336d078e6494b78b65fb3533b"}}
  :aliases
  {:test  {:extra-paths ["test"]
           ;; kotoba-lang/compiler is TEST-ONLY, for the form-A parity gate that
