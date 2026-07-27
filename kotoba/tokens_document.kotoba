@@ -1,0 +1,155 @@
+(ns tokens-document)
+
+;; Delivery 6 third cutover (shitsuke tokens). Logical token-group :document
+;; → CSS custom-property stream. Form-A tokens_core remains oracle.
+;; Recursive helpers keep ≤4 value params (ABI arity).
+
+(defn entry [name :keyword value :string] :document
+  (document-map :name (document-keyword name)
+                :value (document-string value)))
+
+(defn group-doc [prefix :string group :string entries :document] :document
+  (document-map :prefix (document-string prefix)
+                :group (document-string group)
+                :entries entries))
+
+(defn nested-doc [prefix :string group :string k :string props :document] :document
+  (document-map :prefix (document-string prefix)
+                :group (document-string group)
+                :name (document-string k)
+                :nested (document-bool true)
+                :props props))
+
+(defn str-field [d :document k :keyword] :string
+  (option-value-of [:option :string]
+    (document-string-value
+      (option-value-of [:option :document]
+        (document-get d k) (document-null)))
+    ""))
+
+(defn name-of-entry [d :document] :string
+  (keyword-name
+   (option-value-of [:option :keyword]
+     (document-keyword-value
+       (option-value-of [:option :document]
+         (document-get d :name) (document-null)))
+     :missing)))
+
+(defn value-of-entry [d :document] :string
+  (str-field d :value))
+
+(defn entries-of [d :document] :document
+  (option-value-of [:option :document]
+    (document-get d :entries) (document-vector)))
+
+(defn props-of [d :document] :document
+  (option-value-of [:option :document]
+    (document-get d :props) (document-vector)))
+
+(defn nested? [d :document] :bool
+  (option-value-of [:option :bool]
+    (document-bool-value
+      (option-value-of [:option :document]
+        (document-get d :nested) (document-null)))
+    false))
+
+(defn decl [name :string value :string] :string
+  (string-concat "  "
+                 (string-concat name
+                                (string-concat ": "
+                                               (string-concat value ";")))))
+
+(defn css-var-name3 [prefix :string group :string k :string] :string
+  (string-concat "--"
+                 (string-concat prefix
+                                (string-concat "-"
+                                               (string-concat group
+                                                              (string-concat "-" k))))))
+
+(defn scalar-line [d :document e :document] :string
+  (decl (css-var-name3 (str-field d :prefix) (str-field d :group) (name-of-entry e))
+        (value-of-entry e)))
+
+(defn nested-line [d :document e :document] :string
+  (decl (string-concat (css-var-name3 (str-field d :prefix) (str-field d :group)
+                                      (str-field d :name))
+                       (string-concat "-" (name-of-entry e)))
+        (value-of-entry e)))
+
+(defn render-entries-from [d :document i :i64 acc :string] :string
+  (let [entries (entries-of d)
+        n (document-count entries)]
+    (if (>= i n)
+      acc
+      (let [line (scalar-line d
+                   (option-value-of [:option :document]
+                     (document-vector-at entries i) (document-null)))
+            next (if (string=? acc "") line
+                     (string-concat acc (string-concat "\n" line)))]
+        (render-entries-from d (+ i 1) next)))))
+
+(defn render-props-from [d :document i :i64 acc :string] :string
+  (let [props (props-of d)
+        n (document-count props)]
+    (if (>= i n)
+      acc
+      (let [line (nested-line d
+                   (option-value-of [:option :document]
+                     (document-vector-at props i) (document-null)))
+            next (if (string=? acc "") line
+                     (string-concat acc (string-concat "\n" line)))]
+        (render-props-from d (+ i 1) next)))))
+
+(defn render-group [d :document] :string
+  (if (nested? d)
+    (render-props-from d 0 "")
+    (render-entries-from d 0 "")))
+
+(defn root-css [body :string] :string
+  (string-concat ":root {\n"
+                 (string-concat body "\n}")))
+
+(defn normalize-hex [s :string] :string
+  (if (= (string-code-point-at s 0) 35)
+    s
+    (string-concat "#" s)))
+
+(defn default-colors-doc [] :document
+  (group-doc "shitsuke" "colors"
+    (document-vector
+     (entry :accent "#496B9A") (entry :accent2 "#7C9A4B")
+     (entry :danger "#B46A55") (entry :ink "#17202A")
+     (entry :line "#D8DEE8") (entry :muted "#526170")
+     (entry :panel "#F7F8FB") (entry :wash "#FFFFFF"))))
+
+(defn default-spacing-doc [] :document
+  (group-doc "shitsuke" "spacing"
+    (document-vector
+     (entry :0 "0px") (entry :1 "4px") (entry :2 "8px") (entry :3 "12px")
+     (entry :4 "16px") (entry :5 "24px") (entry :6 "32px"))))
+
+(defn default-breakpoints-doc [] :document
+  (group-doc "shitsuke" "breakpoints"
+    (document-vector
+     (entry :lg "1200px") (entry :md "940px") (entry :sm "640px"))))
+
+(defn join-nl [a :string b :string] :string
+  (string-concat a (string-concat "\n" b)))
+
+(defn default-scalar-root [] :string
+  (root-css
+   (join-nl (render-group (default-colors-doc))
+            (join-nl (render-group (default-spacing-doc))
+                     (render-group (default-breakpoints-doc))))))
+
+(defn group-digest [d :document] :string
+  (document-sha256 d))
+
+(defn group-print [d :document] :string
+  (document-print d))
+
+(defn group-read [s :string] :document
+  (document-read s))
+
+(defn main []
+  (string-byte-length (default-scalar-root)))

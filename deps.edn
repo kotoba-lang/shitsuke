@@ -10,7 +10,8 @@
  ;; kami-mangaka-reader-clj + slides.
  :deps {io.github.kotoba-lang/html
         {:git/url "https://github.com/kotoba-lang/html.git"
-         :git/sha "ad835e22c7201a0336d078e6494b78b65fb3533b"}}
+         ;; html D6 document cutover tip
+         :git/sha "04606d97309fa377a20d18ee123e5db8f59ad127"}}
  :aliases
  {:test  {:extra-paths ["test"]
           ;; kotoba-lang/compiler is TEST-ONLY, for the form-A parity gate that
@@ -22,7 +23,8 @@
                        {:git/tag "v0.5.1" :git/sha "dfb30dd"}
                        io.github.kotoba-lang/compiler
                        {:git/url "https://github.com/kotoba-lang/compiler.git"
-                        :git/sha "892d3ddb84e4c7b4f824276a0c24ffd46bf7b89c"}}
+                        ;; W4 print/read surface for D6 cutover gates
+                        :git/sha "aef2daac9fed70b4bbcedf23af630f19ac10b7d2"}}
           :main-opts ["-m" "cognitect.test-runner"]
           :exec-fn cognitect.test-runner.api/test}
   ;; real re-frame/reagent for browser builds (consumer :requires shitsuke.re-frame.core)
