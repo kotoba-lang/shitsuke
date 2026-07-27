@@ -74,6 +74,16 @@ stays `:large-title`). See `docs/design.md` for the formula table.
 - Additive to `shitsuke.tokens` — v1 `--shitsuke-*` vars stay for existing
   consumers.
 
+## `.kotoba` form-A port (ADR-2607270100 §10)
+
+`kotoba/tokens_core.kotoba` and `kotoba/hig_core.kotoba` port the pure
+token → CSS-string pipeline (CSS custom-property emission, layer-order,
+text-style-props). Dual-render seams (`reagent` / `re-frame`) stay on the
+`.cljc` host side. Consumer APIs (`shitsuke.tokens` / `shitsuke.hig`) are
+unchanged — this is an oracle-backed experiment ahead of W4 recursive
+values, not the final API. Byte-equality is gated by
+`test/shitsuke/kotoba_parity_test.clj` (compiler is test-only).
+
 ## Tests
 
 ```bash

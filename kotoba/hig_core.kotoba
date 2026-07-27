@@ -1,0 +1,186 @@
+(ns hig-core)
+
+;; A `.kotoba` port of the string-producing core of `shitsuke.hig`
+;; (ADR-2607270100 §10, form A). No capabilities. Dual-render seams
+;; (reagent/re-frame) and recursive deep-merge stay on the .cljc host side.
+;;
+;; This module owns:
+;;   - `--hig-*` CSS custom-property emission (scalar + nested text props)
+;;   - cascade layer-order declaration
+;;   - text-style-props / utility-class skeleton
+;;   - :root wrapper
+;;
+;; Full default-hig-tokens corpus, dark appearance selection, and base-css
+;; element rules remain on the .cljc side for this tranche (they are large
+;; and partially recursive); the primitives here are what liquid-glass-ui /
+;; kotoba-ui will compose once recursive values land (W4). Parity is gated
+;; against key-sorted .cljc runs of the same primitive shapes.
+
+;; --- names + declarations -------------------------------------------------
+
+(defn css-var-name [group :string k :string] :string
+  (string-concat "--hig-"
+                 (string-concat group
+                                (string-concat "-" k))))
+
+(defn decl [name :string value :string] :string
+  (string-concat "  "
+                 (string-concat name
+                                (string-concat ": "
+                                               (string-concat value ";")))))
+
+(defn scalar-decl [group :string k :string value :string] :string
+  (decl (css-var-name group k) value))
+
+(defn nested-decl [group :string k :string prop :string value :string] :string
+  (decl (string-concat (css-var-name group k)
+                       (string-concat "-" prop))
+        value))
+
+;; A scalar group value that is NOT a map (e.g. :hig/hairline "0.5px")
+;; emits `--hig-<group>: value;` with no trailing name segment.
+
+(defn group-scalar-decl [group :string value :string] :string
+  (decl (string-concat "--hig-" group) value))
+
+(defn group-from [group :string decls [:map :keyword :string] index :i64 acc :string]
+  :string
+  (match-option (typed-map-entry-at [:map :keyword :string] decls index)
+                [:option [:vector [:keyword :string]]]
+                (none acc)
+                (some entry
+                      (group-from group decls (+ index 1)
+                                  (if (string=? acc "")
+                                    (scalar-decl group
+                                                 (keyword-name
+                                                  (hetero-vector-at [:vector [:keyword :string]] entry 0))
+                                                 (hetero-vector-at [:vector [:keyword :string]] entry 1))
+                                    (string-concat acc
+                                                   (string-concat "\n"
+                                                                  (scalar-decl group
+                                                                               (keyword-name
+                                                                                (hetero-vector-at [:vector [:keyword :string]] entry 0))
+                                                                               (hetero-vector-at [:vector [:keyword :string]] entry 1)))))))))
+
+(defn group-css [group :string decls [:map :keyword :string]] :string
+  (group-from group decls 0 ""))
+
+(defn root-css [body :string] :string
+  (string-concat ":root {\n"
+                 (string-concat body "\n}")))
+
+;; Nested text-style expansion: one style name → N prop lines.
+;; props is a flat [:map :keyword :string] of CSS properties.
+
+(defn nested-from [group :string k :string props [:map :keyword :string]
+                   index :i64 acc :string] :string
+  (match-option (typed-map-entry-at [:map :keyword :string] props index)
+                [:option [:vector [:keyword :string]]]
+                (none acc)
+                (some entry
+                      (nested-from group k props (+ index 1)
+                                   (if (string=? acc "")
+                                     (nested-decl group k
+                                                  (keyword-name
+                                                   (hetero-vector-at [:vector [:keyword :string]] entry 0))
+                                                  (hetero-vector-at [:vector [:keyword :string]] entry 1))
+                                     (string-concat acc
+                                                    (string-concat "\n"
+                                                                   (nested-decl group k
+                                                                                (keyword-name
+                                                                                 (hetero-vector-at [:vector [:keyword :string]] entry 0))
+                                                                                (hetero-vector-at [:vector [:keyword :string]] entry 1)))))))))
+
+(defn nested-css [group :string k :string props [:map :keyword :string]] :string
+  (nested-from group k props 0 ""))
+
+;; --- cascade layer --------------------------------------------------------
+
+(defn layer-order-css [] :string
+  "@layer kotoba.hig, kotoba.glass;")
+
+;; --- text-style-props (element / utility class body) ----------------------
+;; Mirrors shitsuke.hig/text-style-props. Weight is a string: either a
+;; literal ("700") or a var(...) expression. letter-spacing keeps the
+;; CSS fallback form `var(--hig-text-<n>-letter-spacing, normal)`.
+
+(defn text-style-props [style :string weight :string] :string
+  (string-concat
+   (string-concat "  font-family: var(--hig-text-"
+                  (string-concat style "-font-family);\n"))
+   (string-concat
+    (string-concat "  font-size: var(--hig-text-"
+                   (string-concat style "-font-size);\n"))
+    (string-concat
+     (string-concat "  line-height: var(--hig-text-"
+                    (string-concat style "-line-height);\n"))
+     (string-concat
+      (string-concat "  font-weight: "
+                     (string-concat weight ";\n"))
+      (string-concat "  letter-spacing: var(--hig-text-"
+                     (string-concat style "-letter-spacing, normal);")))))))
+
+(defn text-style-props-token [style :string] :string
+  (text-style-props style
+                    (string-concat "var(--hig-text-"
+                                   (string-concat style "-font-weight)"))))
+
+(defn text-style-class [style :string] :string
+  (string-concat ".hig-"
+                 (string-concat style
+                                (string-concat " {\n"
+                                               (string-concat (text-style-props-token style)
+                                                              "\n}")))))
+
+(defn layer-wrap [body :string] :string
+  (string-concat "@layer kotoba.hig {\n"
+                 (string-concat body "\n}")))
+
+;; --- light color / spacing sample corpus ----------------------------------
+;; A representative slice of default-hig-tokens (light) used by the parity
+;; gate. Full palette stays on the .cljc side for this tranche.
+
+(defn sample-colors [] [:map :keyword :string]
+  (typed-map-new [:map :keyword :string]
+                 :label "#000000"
+                 :system-background "#FFFFFF"
+                 :tint "#007AFF"))
+
+(defn sample-spacing [] [:map :keyword :string]
+  (typed-map-new [:map :keyword :string]
+                 :1 "4px" :4 "16px" :content-margin "16px"))
+
+(defn sample-radius [] [:map :keyword :string]
+  (typed-map-new [:map :keyword :string]
+                 :capsule "999px" :xs "6px"))
+
+(defn sample-body-text [] [:map :keyword :string]
+  (typed-map-new [:map :keyword :string]
+                 :font-family "var(--hig-font-text)"
+                 :font-size "17px"
+                 :font-weight "400"
+                 :line-height "22px"))
+
+(defn sample-display3-text [] [:map :keyword :string]
+  (typed-map-new [:map :keyword :string]
+                 :font-family "var(--hig-font-display)"
+                 :font-size "clamp(40px, 5vw + 8px, 64px)"
+                 :font-weight "700"
+                 :letter-spacing "-0.02em"
+                 :line-height "calc(1em + 4px)"))
+
+(defn join-nl [a :string b :string] :string
+  (string-concat a (string-concat "\n" b)))
+
+(defn sample-root [] :string
+  (root-css
+   (join-nl (group-css "color" (sample-colors))
+            (join-nl (group-css "spacing" (sample-spacing))
+                     (join-nl (group-css "radius" (sample-radius))
+                              (join-nl (group-scalar-decl "hairline" "0.5px")
+                                       (join-nl (nested-css "text" "body" (sample-body-text))
+                                                (nested-css "text" "display3"
+                                                            (sample-display3-text)))))))))
+
+(defn main []
+  (string-byte-length (join-nl (layer-order-css) (sample-root))))
