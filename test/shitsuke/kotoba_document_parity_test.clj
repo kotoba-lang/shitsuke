@@ -6,7 +6,10 @@
   key-sorted reconstructions of shitsuke.tokens / shitsuke.hig primitives.
 
   Also locks document identity (sha256 + print/read). Form-A remains oracle;
-  consumer APIs unchanged. Dual-render seams stay host-side."
+  consumer APIs unchanged. Dual-render seams stay host-side.
+
+  T5.2 + document-in-record: constructors/render folds use guest records with
+  `:document` fields (`:tokdoc/*`, `:higdoc/*`)."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
@@ -31,14 +34,17 @@
                              (sort-by (comp str key) m)))
        ")"))
 
-(defn- entries-vector [m]
-  (str "(document-vector "
-       (str/join " "
-                 (map (fn [[k v]]
-                        (str "(entry " (pr-str k) " " (kotoba-literal (str v)) ")"))
-                      (sort-by (comp str key) m)))
-       ")"))
-
+(defn- entries-vector
+  "Document-plane entry constructors take guest records (document-in-record)."
+  ([m] (entries-vector m "tokdoc"))
+  ([m schema-ns]
+   (str "(document-vector "
+        (str/join " "
+                  (map (fn [[k v]]
+                         (str "(entry (record-new [:ref :" schema-ns "/entry] "
+                              (pr-str k) " " (kotoba-literal (str v)) "))"))
+                       (sort-by (comp str key) m)))
+        ")")))
 (defn- compile-and-run [port-source cases]
   (let [defs (for [[name body] cases]
                (str "(defn " name " [] :string " body ")"))
@@ -79,14 +85,14 @@
                  "hex2" "(normalize-hex \"#496B9A\")"})
         docs (compile-and-run
               tokens-doc
-              {"colors" (str "(render-group (group-doc \"shitsuke\" \"colors\" "
-                             (entries-vector colors) "))")
-               "spacing" (str "(render-group (group-doc \"shitsuke\" \"spacing\" "
-                              (entries-vector spacing) "))")
-               "bp" (str "(render-group (group-doc \"shitsuke\" \"breakpoints\" "
-                         (entries-vector breakpoints) "))")
-               "root" (str "(root-css (render-group (group-doc \"shitsuke\" \"colors\" "
-                          (entries-vector colors) ")))")
+              {"colors" (str "(render-group (group-doc (record-new [:ref :tokdoc/group] \"shitsuke\" \"colors\" "
+                             (entries-vector colors) ")))")
+               "spacing" (str "(render-group (group-doc (record-new [:ref :tokdoc/group] \"shitsuke\" \"spacing\" "
+                              (entries-vector spacing) ")))")
+               "bp" (str "(render-group (group-doc (record-new [:ref :tokdoc/group] \"shitsuke\" \"breakpoints\" "
+                         (entries-vector breakpoints) ")))")
+               "root" (str "(root-css (render-group (group-doc (record-new [:ref :tokdoc/group] \"shitsuke\" \"colors\" "
+                          (entries-vector colors) "))))")
                "hex1" "(normalize-hex \"496B9A\")"
                "hex2" "(normalize-hex \"#496B9A\")"
                "defaults" "(default-scalar-root)"})]
@@ -118,8 +124,8 @@
         docs (compile-and-run
               tokens-doc
               {"t_block"
-               (str "(render-group (nested-doc \"shitsuke\" \"type\" \"title\" "
-                    (entries-vector title) "))")})]
+               (str "(render-group (nested-doc (record-new [:ref :tokdoc/nested] \"shitsuke\" \"type\" \"title\" "
+                    (entries-vector title) ")))")})]
     (is (= "  --shitsuke-type-title-font-size: 38px;" (get form-a "t_fs")))
     (is (= (cljc-nested-css "shitsuke" "type" "title" title)
            (get docs "t_block")))))

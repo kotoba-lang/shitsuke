@@ -1,24 +1,44 @@
-(ns tokens-document)
+(ns tokens-document
+  ;; Delivery 6 third cutover (shitsuke tokens). Logical token-group :document
+  ;; → CSS custom-property stream. Form-A tokens_core remains oracle.
+  ;; T5.2 + document-in-record (compiler 7691b1ae): multi-arg pure with
+  ;; :document fields fold into guest records.
+  (:schemas {:tokdoc/entry [:record :tokdoc/entry
+                            [[:name :keyword] [:value :string]]]
+             :tokdoc/group [:record :tokdoc/group
+                            [[:prefix :string] [:group :string] [:entries :document]]]
+             :tokdoc/nested [:record :tokdoc/nested
+                             [[:prefix :string] [:group :string]
+                              [:name :string] [:props :document]]]
+             :tokdoc/render-from [:record :tokdoc/render-from
+                                  [[:doc :document] [:index :i64] [:acc :string]]]
+             :tokdoc/line-from [:record :tokdoc/line-from
+                                [[:group :document] [:entry :document]]]}))
 
-;; Delivery 6 third cutover (shitsuke tokens). Logical token-group :document
-;; → CSS custom-property stream. Form-A tokens_core remains oracle.
-;; Recursive helpers keep ≤4 value params (ABI arity).
+(defn entry [x [:ref :tokdoc/entry]] :document
+  (let [name (record-get x :name)
+        value (record-get x :value)]
+    (document-map :name (document-keyword name)
+                  :value (document-string value))))
 
-(defn entry [name :keyword value :string] :document
-  (document-map :name (document-keyword name)
-                :value (document-string value)))
+(defn group-doc [x [:ref :tokdoc/group]] :document
+  (let [prefix (record-get x :prefix)
+        group (record-get x :group)
+        entries (record-get x :entries)]
+    (document-map :prefix (document-string prefix)
+                  :group (document-string group)
+                  :entries entries)))
 
-(defn group-doc [prefix :string group :string entries :document] :document
-  (document-map :prefix (document-string prefix)
-                :group (document-string group)
-                :entries entries))
-
-(defn nested-doc [prefix :string group :string k :string props :document] :document
-  (document-map :prefix (document-string prefix)
-                :group (document-string group)
-                :name (document-string k)
-                :nested (document-bool true)
-                :props props))
+(defn nested-doc [x [:ref :tokdoc/nested]] :document
+  (let [prefix (record-get x :prefix)
+        group (record-get x :group)
+        k (record-get x :name)
+        props (record-get x :props)]
+    (document-map :prefix (document-string prefix)
+                  :group (document-string group)
+                  :name (document-string k)
+                  :nested (document-bool true)
+                  :props props)))
 
 (defn str-field [d :document k :keyword] :string
   (option-value-of [:option :string]
@@ -66,44 +86,60 @@
                                                (string-concat group
                                                               (string-concat "-" k))))))
 
-(defn scalar-line [d :document e :document] :string
-  (decl (css-var-name3 (str-field d :prefix) (str-field d :group) (name-of-entry e))
-        (value-of-entry e)))
+(defn scalar-line [x [:ref :tokdoc/line-from]] :string
+  (let [d (record-get x :group)
+        e (record-get x :entry)]
+    (decl (css-var-name3 (str-field d :prefix) (str-field d :group) (name-of-entry e))
+          (value-of-entry e))))
 
-(defn nested-line [d :document e :document] :string
-  (decl (string-concat (css-var-name3 (str-field d :prefix) (str-field d :group)
-                                      (str-field d :name))
-                       (string-concat "-" (name-of-entry e)))
-        (value-of-entry e)))
+(defn nested-line [x [:ref :tokdoc/line-from]] :string
+  (let [d (record-get x :group)
+        e (record-get x :entry)]
+    (decl (string-concat (css-var-name3 (str-field d :prefix) (str-field d :group)
+                                        (str-field d :name))
+                         (string-concat "-" (name-of-entry e)))
+          (value-of-entry e))))
 
-(defn render-entries-from [d :document i :i64 acc :string] :string
-  (let [entries (entries-of d)
+(defn render-entries-from [x [:ref :tokdoc/render-from]] :string
+  (let [d (record-get x :doc)
+        i (record-get x :index)
+        acc (record-get x :acc)
+        entries (entries-of d)
         n (document-count entries)]
     (if (>= i n)
       acc
-      (let [line (scalar-line d
-                   (option-value-of [:option :document]
-                     (document-vector-at entries i) (document-null)))
+      (let [line (scalar-line
+                  (record-new [:ref :tokdoc/line-from]
+                              d
+                              (option-value-of [:option :document]
+                                (document-vector-at entries i) (document-null))))
             next (if (string=? acc "") line
                      (string-concat acc (string-concat "\n" line)))]
-        (render-entries-from d (+ i 1) next)))))
+        (render-entries-from
+         (record-new [:ref :tokdoc/render-from] d (+ i 1) next))))))
 
-(defn render-props-from [d :document i :i64 acc :string] :string
-  (let [props (props-of d)
+(defn render-props-from [x [:ref :tokdoc/render-from]] :string
+  (let [d (record-get x :doc)
+        i (record-get x :index)
+        acc (record-get x :acc)
+        props (props-of d)
         n (document-count props)]
     (if (>= i n)
       acc
-      (let [line (nested-line d
-                   (option-value-of [:option :document]
-                     (document-vector-at props i) (document-null)))
+      (let [line (nested-line
+                  (record-new [:ref :tokdoc/line-from]
+                              d
+                              (option-value-of [:option :document]
+                                (document-vector-at props i) (document-null))))
             next (if (string=? acc "") line
                      (string-concat acc (string-concat "\n" line)))]
-        (render-props-from d (+ i 1) next)))))
+        (render-props-from
+         (record-new [:ref :tokdoc/render-from] d (+ i 1) next))))))
 
 (defn render-group [d :document] :string
   (if (nested? d)
-    (render-props-from d 0 "")
-    (render-entries-from d 0 "")))
+    (render-props-from (record-new [:ref :tokdoc/render-from] d 0 ""))
+    (render-entries-from (record-new [:ref :tokdoc/render-from] d 0 ""))))
 
 (defn root-css [body :string] :string
   (string-concat ":root {\n"
@@ -115,23 +151,37 @@
     (string-concat "#" s)))
 
 (defn default-colors-doc [] :document
-  (group-doc "shitsuke" "colors"
+  (group-doc
+   (record-new [:ref :tokdoc/group] "shitsuke" "colors"
     (document-vector
-     (entry :accent "#496B9A") (entry :accent2 "#7C9A4B")
-     (entry :danger "#B46A55") (entry :ink "#17202A")
-     (entry :line "#D8DEE8") (entry :muted "#526170")
-     (entry :panel "#F7F8FB") (entry :wash "#FFFFFF"))))
+     (entry (record-new [:ref :tokdoc/entry] :accent "#496B9A"))
+     (entry (record-new [:ref :tokdoc/entry] :accent2 "#7C9A4B"))
+     (entry (record-new [:ref :tokdoc/entry] :danger "#B46A55"))
+     (entry (record-new [:ref :tokdoc/entry] :ink "#17202A"))
+     (entry (record-new [:ref :tokdoc/entry] :line "#D8DEE8"))
+     (entry (record-new [:ref :tokdoc/entry] :muted "#526170"))
+     (entry (record-new [:ref :tokdoc/entry] :panel "#F7F8FB"))
+     (entry (record-new [:ref :tokdoc/entry] :wash "#FFFFFF"))))))
 
 (defn default-spacing-doc [] :document
-  (group-doc "shitsuke" "spacing"
+  (group-doc
+   (record-new [:ref :tokdoc/group] "shitsuke" "spacing"
     (document-vector
-     (entry :0 "0px") (entry :1 "4px") (entry :2 "8px") (entry :3 "12px")
-     (entry :4 "16px") (entry :5 "24px") (entry :6 "32px"))))
+     (entry (record-new [:ref :tokdoc/entry] :0 "0px"))
+     (entry (record-new [:ref :tokdoc/entry] :1 "4px"))
+     (entry (record-new [:ref :tokdoc/entry] :2 "8px"))
+     (entry (record-new [:ref :tokdoc/entry] :3 "12px"))
+     (entry (record-new [:ref :tokdoc/entry] :4 "16px"))
+     (entry (record-new [:ref :tokdoc/entry] :5 "24px"))
+     (entry (record-new [:ref :tokdoc/entry] :6 "32px"))))))
 
 (defn default-breakpoints-doc [] :document
-  (group-doc "shitsuke" "breakpoints"
+  (group-doc
+   (record-new [:ref :tokdoc/group] "shitsuke" "breakpoints"
     (document-vector
-     (entry :lg "1200px") (entry :md "940px") (entry :sm "640px"))))
+     (entry (record-new [:ref :tokdoc/entry] :lg "1200px"))
+     (entry (record-new [:ref :tokdoc/entry] :md "940px"))
+     (entry (record-new [:ref :tokdoc/entry] :sm "640px"))))))
 
 (defn join-nl [a :string b :string] :string
   (string-concat a (string-concat "\n" b)))
