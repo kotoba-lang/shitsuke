@@ -1,23 +1,40 @@
-(ns hig-document)
+(ns hig-document
+  ;; Delivery 6 third cutover (shitsuke HIG). Same document vocabulary as
+  ;; tokens_document with prefix fixed to "hig".
+  ;; T5.2 + document-in-record (compiler 7691b1ae): multi-arg pure fold.
+  (:schemas {:higdoc/entry [:record :higdoc/entry
+                            [[:name :keyword] [:value :string]]]
+             :higdoc/group [:record :higdoc/group
+                            [[:group :string] [:entries :document]]]
+             :higdoc/nested [:record :higdoc/nested
+                             [[:group :string] [:name :string] [:props :document]]]
+             :higdoc/render-from [:record :higdoc/render-from
+                                  [[:doc :document] [:index :i64] [:acc :string]]]
+             :higdoc/line-from [:record :higdoc/line-from
+                                [[:group :document] [:entry :document]]]}))
 
-;; Delivery 6 third cutover (shitsuke HIG). Same document vocabulary as
-;; tokens_document with prefix fixed to "hig". ≤4 value params on recursion.
+(defn entry [x [:ref :higdoc/entry]] :document
+  (let [name (record-get x :name)
+        value (record-get x :value)]
+    (document-map :name (document-keyword name)
+                  :value (document-string value))))
 
-(defn entry [name :keyword value :string] :document
-  (document-map :name (document-keyword name)
-                :value (document-string value)))
+(defn group-doc [x [:ref :higdoc/group]] :document
+  (let [group (record-get x :group)
+        entries (record-get x :entries)]
+    (document-map :prefix (document-string "hig")
+                  :group (document-string group)
+                  :entries entries)))
 
-(defn group-doc [group :string entries :document] :document
-  (document-map :prefix (document-string "hig")
-                :group (document-string group)
-                :entries entries))
-
-(defn nested-doc [group :string k :string props :document] :document
-  (document-map :prefix (document-string "hig")
-                :group (document-string group)
-                :name (document-string k)
-                :nested (document-bool true)
-                :props props))
+(defn nested-doc [x [:ref :higdoc/nested]] :document
+  (let [group (record-get x :group)
+        k (record-get x :name)
+        props (record-get x :props)]
+    (document-map :prefix (document-string "hig")
+                  :group (document-string group)
+                  :name (document-string k)
+                  :nested (document-bool true)
+                  :props props)))
 
 (defn str-field [d :document k :keyword] :string
   (option-value-of [:option :string]
@@ -62,43 +79,59 @@
   (string-concat "--hig-"
                  (string-concat group (string-concat "-" k))))
 
-(defn scalar-line [d :document e :document] :string
-  (decl (css-var-name2 (str-field d :group) (name-of-entry e))
-        (value-of-entry e)))
+(defn scalar-line [x [:ref :higdoc/line-from]] :string
+  (let [d (record-get x :group)
+        e (record-get x :entry)]
+    (decl (css-var-name2 (str-field d :group) (name-of-entry e))
+          (value-of-entry e))))
 
-(defn nested-line [d :document e :document] :string
-  (decl (string-concat (css-var-name2 (str-field d :group) (str-field d :name))
-                       (string-concat "-" (name-of-entry e)))
-        (value-of-entry e)))
+(defn nested-line [x [:ref :higdoc/line-from]] :string
+  (let [d (record-get x :group)
+        e (record-get x :entry)]
+    (decl (string-concat (css-var-name2 (str-field d :group) (str-field d :name))
+                         (string-concat "-" (name-of-entry e)))
+          (value-of-entry e))))
 
-(defn render-entries-from [d :document i :i64 acc :string] :string
-  (let [entries (entries-of d)
+(defn render-entries-from [x [:ref :higdoc/render-from]] :string
+  (let [d (record-get x :doc)
+        i (record-get x :index)
+        acc (record-get x :acc)
+        entries (entries-of d)
         n (document-count entries)]
     (if (>= i n)
       acc
-      (let [line (scalar-line d
-                   (option-value-of [:option :document]
-                     (document-vector-at entries i) (document-null)))
+      (let [line (scalar-line
+                  (record-new [:ref :higdoc/line-from]
+                              d
+                              (option-value-of [:option :document]
+                                (document-vector-at entries i) (document-null))))
             next (if (string=? acc "") line
                      (string-concat acc (string-concat "\n" line)))]
-        (render-entries-from d (+ i 1) next)))))
+        (render-entries-from
+         (record-new [:ref :higdoc/render-from] d (+ i 1) next))))))
 
-(defn render-props-from [d :document i :i64 acc :string] :string
-  (let [props (props-of d)
+(defn render-props-from [x [:ref :higdoc/render-from]] :string
+  (let [d (record-get x :doc)
+        i (record-get x :index)
+        acc (record-get x :acc)
+        props (props-of d)
         n (document-count props)]
     (if (>= i n)
       acc
-      (let [line (nested-line d
-                   (option-value-of [:option :document]
-                     (document-vector-at props i) (document-null)))
+      (let [line (nested-line
+                  (record-new [:ref :higdoc/line-from]
+                              d
+                              (option-value-of [:option :document]
+                                (document-vector-at props i) (document-null))))
             next (if (string=? acc "") line
                      (string-concat acc (string-concat "\n" line)))]
-        (render-props-from d (+ i 1) next)))))
+        (render-props-from
+         (record-new [:ref :higdoc/render-from] d (+ i 1) next))))))
 
 (defn render-group [d :document] :string
   (if (nested? d)
-    (render-props-from d 0 "")
-    (render-entries-from d 0 "")))
+    (render-props-from (record-new [:ref :higdoc/render-from] d 0 ""))
+    (render-entries-from (record-new [:ref :higdoc/render-from] d 0 ""))))
 
 (defn group-scalar-decl [group :string value :string] :string
   (decl (string-concat "--hig-" group) value))
@@ -114,38 +147,46 @@
   (string-concat a (string-concat "\n" b)))
 
 (defn sample-colors-doc [] :document
-  (group-doc "color"
+  (group-doc
+   (record-new [:ref :higdoc/group] "color"
     (document-vector
-     (entry :label "#000000")
-     (entry :system-background "#FFFFFF")
-     (entry :tint "#007AFF"))))
+     (entry (record-new [:ref :higdoc/entry] :label "#000000"))
+     (entry (record-new [:ref :higdoc/entry] :system-background "#FFFFFF"))
+     (entry (record-new [:ref :higdoc/entry] :tint "#007AFF"))))))
 
 (defn sample-spacing-doc [] :document
-  (group-doc "spacing"
+  (group-doc
+   (record-new [:ref :higdoc/group] "spacing"
     (document-vector
-     (entry :1 "4px") (entry :4 "16px") (entry :content-margin "16px"))))
+     (entry (record-new [:ref :higdoc/entry] :1 "4px"))
+     (entry (record-new [:ref :higdoc/entry] :4 "16px"))
+     (entry (record-new [:ref :higdoc/entry] :content-margin "16px"))))))
 
 (defn sample-radius-doc [] :document
-  (group-doc "radius"
+  (group-doc
+   (record-new [:ref :higdoc/group] "radius"
     (document-vector
-     (entry :capsule "999px") (entry :xs "6px"))))
+     (entry (record-new [:ref :higdoc/entry] :capsule "999px"))
+     (entry (record-new [:ref :higdoc/entry] :xs "6px"))))))
 
 (defn sample-body-text-doc [] :document
-  (nested-doc "text" "body"
+  (nested-doc
+   (record-new [:ref :higdoc/nested] "text" "body"
     (document-vector
-     (entry :font-family "var(--hig-font-text)")
-     (entry :font-size "17px")
-     (entry :font-weight "400")
-     (entry :line-height "22px"))))
+     (entry (record-new [:ref :higdoc/entry] :font-family "var(--hig-font-text)"))
+     (entry (record-new [:ref :higdoc/entry] :font-size "17px"))
+     (entry (record-new [:ref :higdoc/entry] :font-weight "400"))
+     (entry (record-new [:ref :higdoc/entry] :line-height "22px"))))))
 
 (defn sample-display3-text-doc [] :document
-  (nested-doc "text" "display3"
+  (nested-doc
+   (record-new [:ref :higdoc/nested] "text" "display3"
     (document-vector
-     (entry :font-family "var(--hig-font-display)")
-     (entry :font-size "clamp(40px, 5vw + 8px, 64px)")
-     (entry :font-weight "700")
-     (entry :letter-spacing "-0.02em")
-     (entry :line-height "calc(1em + 4px)"))))
+     (entry (record-new [:ref :higdoc/entry] :font-family "var(--hig-font-display)"))
+     (entry (record-new [:ref :higdoc/entry] :font-size "clamp(40px, 5vw + 8px, 64px)"))
+     (entry (record-new [:ref :higdoc/entry] :font-weight "700"))
+     (entry (record-new [:ref :higdoc/entry] :letter-spacing "-0.02em"))
+     (entry (record-new [:ref :higdoc/entry] :line-height "calc(1em + 4px)"))))))
 
 (defn sample-root [] :string
   (root-css
@@ -155,6 +196,7 @@
                               (join-nl (group-scalar-decl "hairline" "0.5px")
                                        (join-nl (render-group (sample-body-text-doc))
                                                 (render-group (sample-display3-text-doc)))))))))
+
 (defn group-digest [d :document] :string
   (document-sha256 d))
 
