@@ -67,10 +67,14 @@
         breakpoints (into (sorted-map) (get tokens/default-tokens :shitsuke/breakpoints))
         form-a (compile-and-run
                 tokens-form-a
-                {"colors" (str "(group-css \"colors\" " (typed-map-literal colors) ")")
-                 "spacing" (str "(group-css \"spacing\" " (typed-map-literal spacing) ")")
-                 "bp" (str "(group-css \"breakpoints\" " (typed-map-literal breakpoints) ")")
-                 "root" (str "(root-css (group-css \"colors\" " (typed-map-literal colors) "))")
+                {"colors" (str "(group-css (record-new [:ref :tok/group-css] \"colors\" "
+                               (typed-map-literal colors) "))")
+                 "spacing" (str "(group-css (record-new [:ref :tok/group-css] \"spacing\" "
+                                (typed-map-literal spacing) "))")
+                 "bp" (str "(group-css (record-new [:ref :tok/group-css] \"breakpoints\" "
+                           (typed-map-literal breakpoints) "))")
+                 "root" (str "(root-css (group-css (record-new [:ref :tok/group-css] \"colors\" "
+                            (typed-map-literal colors) ")))")
                  "hex1" "(normalize-hex \"496B9A\")"
                  "hex2" "(normalize-hex \"#496B9A\")"})
         docs (compile-and-run
@@ -110,7 +114,7 @@
                      :color "var(--shitsuke-colors-ink)"})
         form-a (compile-and-run
                 tokens-form-a
-                {"t_fs" "(nested-decl \"type\" \"title\" \"font-size\" \"38px\")"})
+                {"t_fs" "(nested-decl (record-new [:ref :tok/nested-decl] \"type\" \"title\" \"font-size\" \"38px\"))"})
         docs (compile-and-run
               tokens-doc
               {"t_block"

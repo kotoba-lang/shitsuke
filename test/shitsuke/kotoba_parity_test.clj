@@ -9,7 +9,9 @@
 
   The port is compiled and executed through the KIR interpreter in this same
   JVM. Each case is a zero-argument `.kotoba` function; no typed value is
-  marshalled from Clojure. Map walks are key-sorted on both sides."
+  marshalled from Clojure. Map walks are key-sorted on both sides.
+
+  T5.2: multi-arg pure folded into guest records; cases call via record-new."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
@@ -36,6 +38,24 @@
        (str/join " " (mapcat (fn [[k v]] [(pr-str k) (kotoba-literal (str v))])
                              (sort-by (comp str key) m)))
        ")"))
+
+(defn- tok-group-css [group m]
+  (str "(group-css (record-new [:ref :tok/group-css] "
+       (kotoba-literal group) " " (typed-map-literal m) "))"))
+
+(defn- tok-nested-decl [group k prop value]
+  (str "(nested-decl (record-new [:ref :tok/nested-decl] "
+       (kotoba-literal group) " " (kotoba-literal k) " "
+       (kotoba-literal prop) " " (kotoba-literal value) "))"))
+
+(defn- hig-group-css [group m]
+  (str "(group-css (record-new [:ref :hig/group-css] "
+       (kotoba-literal group) " " (typed-map-literal m) "))"))
+
+(defn- hig-nested-css [group k props]
+  (str "(nested-css (record-new [:ref :hig/nested-css] "
+       (kotoba-literal group) " " (kotoba-literal k) " "
+       (typed-map-literal props) "))"))
 
 (defn- cljc-scalar-group-css
   "Key-sorted reconstruction of shitsuke.tokens/pair->css for scalar groups."
@@ -69,12 +89,12 @@
         spacing (into (sorted-map) (get tokens/default-tokens :shitsuke/spacing))
         breakpoints (into (sorted-map) (get tokens/default-tokens :shitsuke/breakpoints))
         actual (compile-cases tokens-source
-                              {"colors" (str "(group-css \"colors\" " (typed-map-literal colors) ")")
-                               "spacing" (str "(group-css \"spacing\" " (typed-map-literal spacing) ")")
-                               "bp" (str "(group-css \"breakpoints\" " (typed-map-literal breakpoints) ")")
-                               "root" (str "(root-css (group-css \"colors\" " (typed-map-literal colors) "))")
-                               "c_var" "(css-var-name \"colors\" \"ink\")"
-                               "c_decl" "(scalar-decl \"colors\" \"ink\" \"#17202A\")"})]
+                              {"colors" (tok-group-css "colors" colors)
+                               "spacing" (tok-group-css "spacing" spacing)
+                               "bp" (tok-group-css "breakpoints" breakpoints)
+                               "root" (str "(root-css " (tok-group-css "colors" colors) ")")
+                               "c_var" "(css-var-name (record-new [:ref :tok/css-var-name] \"colors\" \"ink\"))"
+                               "c_decl" "(scalar-decl (record-new [:ref :tok/scalar-decl] \"colors\" \"ink\" \"#17202A\"))"})]
     (testing "css-var-name / scalar-decl"
       (is (= "--shitsuke-colors-ink" (get actual "c_var")))
       (is (= "  --shitsuke-colors-ink: #17202A;" (get actual "c_decl"))))
@@ -97,21 +117,23 @@
                :font-size "38px"
                :font-weight "700"
                :color "var(--shitsuke-colors-ink)"}
-        ;; nested-decl is one prop at a time; group of nested lines via
-        ;; repeated nested-decl composition is the form-A shape.
         actual (compile-cases tokens-source
-                              {"t_fs" "(nested-decl \"type\" \"title\" \"font-size\" \"38px\")"
-                               "t_ff" "(nested-decl \"type\" \"title\" \"font-family\" \"Aptos Display, system-ui, sans-serif\")"
+                              {"t_fs" (tok-nested-decl "type" "title" "font-size" "38px")
+                               "t_ff" (tok-nested-decl "type" "title" "font-family"
+                                                       "Aptos Display, system-ui, sans-serif")
                                "t_block"
-                               (str "(string-concat (nested-decl \"type\" \"title\" \"color\" "
-                                    (kotoba-literal "var(--shitsuke-colors-ink)") ") "
-                                    "(string-concat \"\\n\" "
-                                    "(string-concat (nested-decl \"type\" \"title\" \"font-family\" "
-                                    (kotoba-literal (:font-family title)) ") "
-                                    "(string-concat \"\\n\" "
-                                    "(string-concat (nested-decl \"type\" \"title\" \"font-size\" \"38px\") "
-                                    "(string-concat \"\\n\" "
-                                    "(nested-decl \"type\" \"title\" \"font-weight\" \"700\")))))))")})]
+                               (let [color (tok-nested-decl "type" "title" "color"
+                                                            "var(--shitsuke-colors-ink)")
+                                     ff (tok-nested-decl "type" "title" "font-family"
+                                                         (:font-family title))
+                                     fs (tok-nested-decl "type" "title" "font-size" "38px")
+                                     fw (tok-nested-decl "type" "title" "font-weight" "700")]
+                                 (str "(string-concat " color
+                                      " (string-concat \"\\n\" "
+                                      "(string-concat " ff
+                                      " (string-concat \"\\n\" "
+                                      "(string-concat " fs
+                                      " (string-concat \"\\n\" " fw "))))))"))})]
     (is (= "  --shitsuke-type-title-font-size: 38px;" (get actual "t_fs")))
     (is (= "  --shitsuke-type-title-font-family: Aptos Display, system-ui, sans-serif;"
            (get actual "t_ff")))
@@ -125,13 +147,12 @@
   (let [actual (compile-cases hig-source
                               {"layer" "(layer-order-css)"
                                "body_props" "(text-style-props-token \"body\")"
-                               "h1_props" "(text-style-props \"large-title\" \"700\")"
+                               "h1_props" "(text-style-props (record-new [:ref :hig/text-style-props] \"large-title\" \"700\"))"
                                "class_body" "(text-style-class \"body\")"
                                "class_d3" "(text-style-class \"display3\")"
                                "wrap" "(layer-wrap (text-style-class \"body\"))"})]
     (is (= hig/layer-order-css (get actual "layer")))
     (testing "text-style-props matches .cljc private emission shape"
-      ;; Use the public base-css / text-style-classes as the oracle for shape.
       (is (str/includes? (hig/base-css) (str/trim-newline (get actual "body_props"))))
       (is (str/includes? (hig/base-css)
                          "font-family: var(--hig-text-large-title-font-family);"))
@@ -161,12 +182,12 @@
             :letter-spacing "-0.02em"
             :line-height "calc(1em + 4px)"}
         actual (compile-cases hig-source
-                              {"colors" (str "(group-css \"color\" " (typed-map-literal colors) ")")
-                               "spacing" (str "(group-css \"spacing\" " (typed-map-literal spacing) ")")
-                               "radius" (str "(group-css \"radius\" " (typed-map-literal radius) ")")
-                               "hairline" "(group-scalar-decl \"hairline\" \"0.5px\")"
-                               "body" (str "(nested-css \"text\" \"body\" " (typed-map-literal body-text) ")")
-                               "d3" (str "(nested-css \"text\" \"display3\" " (typed-map-literal d3) ")")
+                              {"colors" (hig-group-css "color" colors)
+                               "spacing" (hig-group-css "spacing" spacing)
+                               "radius" (hig-group-css "radius" radius)
+                               "hairline" "(group-scalar-decl (record-new [:ref :hig/group-scalar-decl] \"hairline\" \"0.5px\"))"
+                               "body" (hig-nested-css "text" "body" body-text)
+                               "d3" (hig-nested-css "text" "display3" d3)
                                "sample" "(sample-root)"})]
     (is (= (cljc-scalar-group-css "hig" "color" colors) (get actual "colors")))
     (is (= (cljc-scalar-group-css "hig" "spacing" spacing) (get actual "spacing")))
