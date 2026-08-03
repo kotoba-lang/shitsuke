@@ -1,5 +1,6 @@
 (ns shitsuke.hiccup-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
             [shitsuke.hiccup :as h]))
 
 (deftest esc-test
@@ -43,6 +44,20 @@
   (let [view [:div.card [:button {:data-act "go"} "Go"] [:p "hi & bye"]]]
     (is (= "<div class=\"card\"><button data-act=\"go\">Go</button><p>hi &amp; bye</p></div>"
            (h/->html view)))))
+
+(deftest reagent-key-is-not-html-test
+  "SSR special case, mirroring textarea/:value: reagent requires :key on
+  elements produced from a seq, HTML has no such attribute."
+  (testing ":key never reaches the markup"
+    (is (= "<span>a</span>" (h/->html [:span {:key 0} "a"])))
+    (is (= "<li class=\"x\">a</li>" (h/->html [:li {:key "id-1" :class "x"} "a"]))))
+  (testing "the seq case this exists for"
+    (is (= "<ul><li>0</li><li>1</li></ul>"
+           (h/->html [:ul (for [i (range 2)] [:li {:key i} (str i)])]))))
+  (testing "a :key of 0 is dropped too — falsy-looking values are still keys"
+    (is (not (str/includes? (h/->html [:span {:key 0} "a"]) "key"))))
+  (testing "an explicit data-key is a real attribute and must survive"
+    (is (= "<span data-key=\"7\">a</span>" (h/->html [:span {:data-key 7} "a"])))))
 
 (deftest textarea-value-test
   "SSR special case: real HTML has no value attribute on <textarea> -- the
