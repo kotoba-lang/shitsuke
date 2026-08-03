@@ -24,6 +24,7 @@
     attribute maps                      :class as string/vec, boolean attrs
     strings/numbers                     strings escaped, numbers str'd
     nil / seqs                          nil skipped, seqs flattened
+    :key                                dropped (reagent-only; not HTML)
     [:hiccup/raw \"<svg/>\"]            trusted markup, not escaped
     <script>/<style> children           RAWTEXT semantics: emitted verbatim
                                          (not HTML-escaped), [:hiccup/raw ...]
@@ -96,7 +97,15 @@
           ;; an attribute (value-as-child is read only at mount), so the SSR
           ;; twin translates: render :value as escaped content, emit no value=.
           textarea-value (when (= tag "textarea") (:value attrs))
-          attrs (cond-> attrs (= tag "textarea") (dissoc :value))]
+          attrs (cond-> attrs (= tag "textarea") (dissoc :value))
+          ;; :key is the same shape of translation as :value above, in the
+          ;; other direction. reagent/React requires it on elements produced
+          ;; from a seq (without it, every such render logs a warning), so it
+          ;; belongs in the shared hiccup. HTML has no `key` attribute, so the
+          ;; SSR twin must drop it rather than emit `key="0"` — measured
+          ;; 2026-08-04 in kobo's served console, where every output span
+          ;; carried one.
+          attrs (dissoc attrs :key)]
       (conj! sb (str "<" tag (render-attrs attrs) ">"))
       (when-not (contains? void-tags tag)
         (if (contains? raw-text-tags tag)
