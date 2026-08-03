@@ -41,36 +41,31 @@
                   :props props)))
 
 (defn str-field [d :document k :keyword] :string
-  (option-value-of [:option :string]
+  (option-or
     (document-string-value
-      (option-value-of [:option :document]
-        (document-get d k) (document-null)))
+      (option-or (document-get d k) (document-null)))
     ""))
 
 (defn name-of-entry [d :document] :string
   (keyword-name
-   (option-value-of [:option :keyword]
+   (option-or
      (document-keyword-value
-       (option-value-of [:option :document]
-         (document-get d :name) (document-null)))
+       (option-or (document-get d :name) (document-null)))
      :missing)))
 
 (defn value-of-entry [d :document] :string
   (str-field d :value))
 
 (defn entries-of [d :document] :document
-  (option-value-of [:option :document]
-    (document-get d :entries) (document-vector)))
+  (option-or (document-get d :entries) (document-vector)))
 
 (defn props-of [d :document] :document
-  (option-value-of [:option :document]
-    (document-get d :props) (document-vector)))
+  (option-or (document-get d :props) (document-vector)))
 
 (defn nested? [d :document] :bool
-  (option-value-of [:option :bool]
+  (option-or
     (document-bool-value
-      (option-value-of [:option :document]
-        (document-get d :nested) (document-null)))
+      (option-or (document-get d :nested) (document-null)))
     false))
 
 (defn decl [name :string value :string] :string
@@ -111,8 +106,8 @@
       (let [line (scalar-line
                   (record-new [:ref :tokdoc/line-from]
                               d
-                              (option-value-of [:option :document]
-                                (document-vector-at entries i) (document-null))))
+                              (option-or (document-vector-at entries i)
+                                         (document-null))))
             next (if (string=? acc "") line
                      (string-concat acc (string-concat "\n" line)))]
         (render-entries-from
@@ -129,8 +124,8 @@
       (let [line (nested-line
                   (record-new [:ref :tokdoc/line-from]
                               d
-                              (option-value-of [:option :document]
-                                (document-vector-at props i) (document-null))))
+                              (option-or (document-vector-at props i)
+                                         (document-null))))
             next (if (string=? acc "") line
                      (string-concat acc (string-concat "\n" line)))]
         (render-props-from

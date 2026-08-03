@@ -10,8 +10,8 @@
  ;; kami-mangaka-reader-clj + slides.
  :deps {io.github.kotoba-lang/html
         {:git/url "https://github.com/kotoba-lang/html.git"
-         ;; html document-plane guest records tip
-         :git/sha "709a38f2b192881a1ab8542a280cdd667090ea2a"}}
+         ;; inferred option fallback in the document renderer
+         :git/sha "23566059c5b25efd2a91030d5b19b98f50756b01"}}
  :aliases
  {:test  {:extra-paths ["test"]
           ;; kotoba-lang/compiler is TEST-ONLY, for the form-A parity gate that
@@ -23,8 +23,8 @@
                        {:git/tag "v0.5.1" :git/sha "dfb30dd"}
                        io.github.kotoba-lang/compiler
                        {:git/url "https://github.com/kotoba-lang/compiler.git"
-                        ;; document-in-record: :document as closed guest-record field
-                        :git/sha "7691b1aeb7baa22785b6fbb5689133de85dacde6"}}
+                        ;; inferred option fallback and contextual document keys
+                        :git/sha "c3be07fb38bf457a159a2b304152e18693f9b0b6"}}
           :main-opts ["-m" "cognitect.test-runner"]
           :exec-fn cognitect.test-runner.api/test}
   ;; real re-frame/reagent for browser builds (consumer :requires shitsuke.re-frame.core)
