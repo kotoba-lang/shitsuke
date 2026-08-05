@@ -1,5 +1,6 @@
 (ns shitsuke.components-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.string :as str]
             [shitsuke.components :as c]
             [shitsuke.hiccup :as h]))
 
@@ -112,7 +113,21 @@
 (deftest select-test
   (let [v (c/select [["a" "A"] ["b" "B"]] {:value "a"})]
     (is (= "<select class=\"shitsuke__select\"><option value=\"a\" selected>A</option><option value=\"b\">B</option></select>"
-           (html v)))))
+           (html v))))
+  (testing "no-opts arity"
+    (is (str/includes? (html (c/select [["a" "A"]])) "<select class=\"shitsuke__select\">")))
+  (testing ":attrs reaches the element — a select with no visible <label> is
+            unlabeled without it, and this used to be dropped silently"
+    (let [out (html (c/select [["a" "A"]] {:value "a" :attrs {:aria-label "原稿用紙"
+                                                              :name "youshi"}}))]
+      (is (str/includes? out "aria-label=\"原稿用紙\""))
+      (is (str/includes? out "name=\"youshi\""))))
+  (testing ":attrs cannot clobber the component's own generated attrs"
+    (let [out (html (c/select [["a" "A"]] {:act :pick
+                                           :attrs {:class "mine" :data-act "spoofed"}}))]
+      (is (str/includes? out "class=\"shitsuke__select\""))
+      (is (str/includes? out "data-act=\"pick\""))
+      (is (not (str/includes? out "spoofed"))))))
 
 (deftest mode-tabs-test
   (let [v (c/mode-tabs [[:visual "Visual"] [:edn "EDN"]] :visual)]

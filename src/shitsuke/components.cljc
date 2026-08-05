@@ -123,13 +123,26 @@
                                 :rows (or rows 6)})])))
 
 (defn select
-  "`options` is a vec of [value label] pairs. opts: :id, :value, :on-change, :act."
+  "`options` is a vec of [value label] pairs. opts: :id, :value, :on-change,
+  :act, :attrs.
+
+  `:attrs` is merged onto the `<select>` with the component's own generated
+  attrs winning on conflict — the same contract `kotoba-ui.shell` and
+  `liquid-glass.components/list-row` use. It exists because a `<select>` with
+  no visible `<label>` needs `aria-label` (or `aria-labelledby`, `title`,
+  `required`, `disabled`, `name`, `form`…) and this fn previously read four
+  keys and dropped everything else *silently*: consuming code could pass
+  `:aria-label` and render an unlabeled control while reading as accessible.
+  That is the same defect `list-row` was reported for; fixing it here fixes
+  `liquid-glass.components/menu-select` too, which forwards its opts."
+  ([options] (select options nil))
   ([options opts]
-   (let [{:keys [id value on-change act]} opts]
-     [:select {:id id
+   (let [{:keys [id value on-change act attrs]} opts
+         base {:id id
                :class (s/class-name :select)
                :on-change on-change
-               :data-act (some-> act act->str)}
+               :data-act (some-> act act->str)}]
+     [:select (if (seq attrs) (merge attrs base) base)
       (for [[v l] options]
         [:option {:value v :selected (= (str v) (str value))} l])])))
 
