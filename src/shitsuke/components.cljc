@@ -26,6 +26,21 @@
                    (name a))
     :else (str a)))
 
+(defn- merge-attrs
+  "Consumer `:attrs` under a component's own generated attrs.
+
+  The generated map wins — but only where it actually generated something.
+  A key it left nil (`:disabled` on a button that is not disabled, `:title`
+  with no title, `:id` on a select without one) is absent, not authoritative,
+  and letting nil win would silently cancel the consumer's value: passing
+  `:attrs {:disabled busy?}` produced a button that never disabled. Keys the
+  component always sets (`:class`, `:type`) still win, which is the point of
+  the contract."
+  [attrs base]
+  (if (seq attrs)
+    (merge attrs (into {} (remove (comp nil? val)) base))
+    base))
+
 (defn button
   "Plain button. `label` may be string or hiccup. opts: :class, :act,
   :disabled, :title, :type, :attrs.
@@ -53,7 +68,7 @@
                :disabled (when disabled true)
                :title title
                :data-act (some-> act act->str)}]
-     [:button (if (seq attrs) (merge attrs base) base)
+     [:button (merge-attrs attrs base)
       label])))
 
 (defn icon-button
@@ -158,7 +173,7 @@
                :class (s/class-name :select)
                :on-change on-change
                :data-act (some-> act act->str)}]
-     [:select (if (seq attrs) (merge attrs base) base)
+     [:select (merge-attrs attrs base)
       (for [[v l] options]
         [:option {:value v :selected (= (str v) (str value))} l])])))
 
