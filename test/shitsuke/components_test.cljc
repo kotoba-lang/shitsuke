@@ -29,6 +29,24 @@
     (is (= "<button class=\"shitsuke__button my-btn\" type=\"button\">Go</button>"
            (html (c/button "Go" {:class "my-btn"}))))))
 
+(deftest button-attrs-test
+  (testing ":attrs reaches the element — this is what lets a browser-only
+            reagent app use the design system's components at all, since its
+            handlers are closures and there is no delegated listener to give
+            an `act` to"
+    (let [hic (c/button "Solo" {:attrs {:on-click :HANDLER :aria-pressed "true"}})]
+      (is (= :HANDLER (:on-click (second hic))))
+      (is (= "true" (:aria-pressed (second hic)))))
+    (is (str/includes? (html (c/button "X" {:attrs {:aria-pressed "true"}}))
+                       "aria-pressed=\"true\"")))
+  (testing ":attrs cannot clobber the component's own generated attrs"
+    (let [out (html (c/button "X" {:act :go :attrs {:class "mine" :data-act "spoofed"}}))]
+      (is (str/includes? out "class=\"shitsuke__button\""))
+      (is (str/includes? out "data-act=\"go\""))
+      (is (not (str/includes? out "spoofed")))))
+  (testing "icon-button inherits the passthrough"
+    (is (= :HANDLER (:on-click (second (c/icon-button "☰" {:attrs {:on-click :HANDLER}})))))))
+
 (deftest icon-button-test
   (testing "icon-button's own class-merge (base class + caller's :class) only
             works if the underlying button honors :class from opts -- this
