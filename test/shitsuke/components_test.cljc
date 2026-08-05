@@ -44,6 +44,19 @@
       (is (str/includes? out "class=\"shitsuke__button\""))
       (is (str/includes? out "data-act=\"go\""))
       (is (not (str/includes? out "spoofed")))))
+  (testing "a key the component left nil does not cancel the consumer's value"
+    ;; The footgun this closes: `:attrs {:disabled busy?}` used to render a
+    ;; button that never disabled, because the generated map carried
+    ;; `:disabled nil` and "the component wins" was taken literally.
+    (let [hic (c/button "Save" {:attrs {:disabled true :title "t" :id "b1"}})]
+      (is (true? (:disabled (second hic))))
+      (is (= "t" (:title (second hic))))
+      (is (= "b1" (:id (second hic)))))
+    (is (= "s1" (:id (second (c/select [["a" "A"]] {:attrs {:id "s1"}})))))
+    (testing "but keys it always sets still win"
+      (let [hic (c/button "X" {:attrs {:class "mine" :type "submit"}})]
+        (is (= "shitsuke__button" (:class (second hic))))
+        (is (= "button" (:type (second hic)))))))
   (testing "icon-button inherits the passthrough"
     (is (= :HANDLER (:on-click (second (c/icon-button "☰" {:attrs {:on-click :HANDLER}})))))))
 
