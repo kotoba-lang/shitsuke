@@ -27,17 +27,33 @@
     :else (str a)))
 
 (defn button
-  "Plain button. `label` may be string or hiccup. opts: :class, :act, :disabled,
-  :title, :type."
+  "Plain button. `label` may be string or hiccup. opts: :class, :act,
+  :disabled, :title, :type, :attrs.
+
+  `:attrs` merges onto the element with the component's own generated attrs
+  winning — the same contract `select`, `liquid-glass.components/list-row` and
+  `kotoba-ui.shell` use.
+
+  It is what makes this component usable from a plain reagent app. `act` is
+  the portable interaction attribute, and an SSR page pairs it with a
+  delegated listener; but a browser-only app that already holds its handlers
+  as closures has no delegation layer to hand them to, and `:on-click` was
+  being dropped here in silence. Such an app had two options: rewrite itself
+  around `data-act`, or stop using the design system's components. Both were
+  the wrong answer to `(button \"Solo\" {:attrs {:on-click f}})`.
+
+  aria-*, `aria-pressed` on a toggle button, `form`, `name`, `value` and
+  `autofocus` arrive the same way."
   ([label]
    (button label nil))
   ([label opts]
-   (let [{:keys [act disabled title type class]} opts]
-     [:button {:class (str (s/class-name :button) (when class (str " " class)))
+   (let [{:keys [act disabled title type class attrs]} opts
+         base {:class (str (s/class-name :button) (when class (str " " class)))
                :type (or type "button")
                :disabled (when disabled true)
                :title title
-               :data-act (some-> act act->str)}
+               :data-act (some-> act act->str)}]
+     [:button (if (seq attrs) (merge attrs base) base)
       label])))
 
 (defn icon-button
