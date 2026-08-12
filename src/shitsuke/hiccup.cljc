@@ -33,7 +33,8 @@
                                          case-insensitive \"</tag\" breakout
                                          sequence is rejected."
   (:require [clojure.string :as str]
-            [html.core :as html]))
+            [html.core :as html]
+            [shitsuke.kotoba-oracle :as oracle]))
 
 (def esc
   "Escape &, <, >, \" for safe inclusion in HTML text/attribute context.
@@ -60,14 +61,69 @@
                        (str c)))
                    children)))
 
+;; --- the RAWTEXT breakout decision, which this namespace no longer makes ----
+;;
+;; The rule lives in `kotoba/hiccup_core.kotoba` and RUNS from
+;; `resources/shitsuke/oracle/hiccup-core.kir.edn`. What stays here is the half
+;; that is not a decision: flattening children to a payload, windowing a long
+;; one, and throwing. There is deliberately no `re-find` left in this
+;; namespace — a security rule that exists twice is a security rule that can be
+;; fixed once and stay broken in the copy that runs (ADR-2608112100).
+
+(def ^:private rawtext-window
+  "Characters per guest call.
+
+  A guest string argument is capped at 65536 UTF-8 bytes and this is well under
+  the always-safe character bound for that (`oracle/chars-that-always-fit`,
+  21845), so a window never has to be encoded to know it will be accepted."
+  16384)
+
+(def ^:private rawtext-overlap
+  "Characters each window shares with the previous one.
+
+  A terminator that straddles a window boundary must still land wholly inside
+  ONE window, so the overlap has to be at least one less than the longest run
+  of input characters that can fold to `</tag`. No character case-folds to the
+  empty string, so such a run is never longer than the terminator itself — 8
+  characters for `</script`. 256 is that bound with room for a longer raw-text
+  tag than HTML5 has ever had, and it costs nothing: it only shortens the
+  stride."
+  256)
+
+(defn- breaks-out?
+  "Ask the shipped core whether `content` breaks out of `<tag>`.
+
+  Every call goes to the guest — there is no size below which this namespace
+  answers for itself, because that would be the second implementation again.
+  Long content is WINDOWED rather than declined: the guest decides each window,
+  and a payload breaks out exactly when some window does."
+  [tag content]
+  (let [schema (oracle/only-param-type :hiccup-core 'rawtext-breakout?)
+        ask (fn [chunk]
+              (oracle/call :hiccup-core 'rawtext-breakout?
+                           [(oracle/record-of schema {:tag tag :content chunk})]))
+        n (count content)]
+    (if (<= n rawtext-window)
+      (ask content)
+      (let [stride (- rawtext-window rawtext-overlap)]
+        (loop [start 0]
+          (cond
+            (>= start n) false
+            (ask (subs content start (min n (+ start rawtext-window)))) true
+            :else (recur (+ start stride))))))))
+
 (defn- assert-no-rawtext-breakout!
   "HTML5 RAWTEXT parsing: a <script>/<style> element terminates at the FIRST
   literal, case-insensitive \"</tag\" sequence in its content, regardless of
   surrounding quotes/strings/comments in the raw text -- emitting that
   sequence verbatim lets a raw payload break out of the element and inject
-  markup after it (a script-context XSS vector)."
+  markup after it (a script-context XSS vector).
+
+  The predicate is `kotoba/hiccup_core.kotoba`; the throw is here. Kotoba's
+  permanent `:explicit-errors` invariant means the guest cannot throw, and it
+  should not: signalling is an effect and effects stay with the host."
   [tag content]
-  (when (re-find (re-pattern (str "(?i)</" tag)) content)
+  (when (breaks-out? tag content)
     (throw (ex-info (str "shitsuke.hiccup: raw-text content for <" tag "> must not contain \"</" tag "\" "
                           "case-insensitively -- that sequence terminates the element early "
                           "per HTML5's RAWTEXT rule and can break out into injected markup")

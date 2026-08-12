@@ -84,10 +84,75 @@ unchanged — this is an oracle-backed experiment ahead of W4 recursive
 values, not the final API. Byte-equality is gated by
 `test/shitsuke/kotoba_parity_test.clj` (compiler is test-only).
 
+### Which cores actually RUN (ADR-2608120200 §1)
+
+**One does: `kotoba/hiccup_core.kotoba`.** `shitsuke.hiccup` executes the
+shipped `resources/shitsuke/oracle/hiccup-core.kir.edn` through
+`shitsuke.kotoba-oracle` for every RAWTEXT breakout judgement, and this
+namespace no longer contains a `re-find` for it. That one was taken first
+because it is a SECURITY predicate — whether a `<script>`/`<style>` payload
+contains the `</tag` sequence that ends the element early and lets markup be
+injected after it — and a security rule that exists twice can be fixed once
+and stay broken in the copy that runs.
+
+**The other five do not, and that is a measured decision, not a backlog.**
+
+| core | status | measured reason |
+|---|---|---|
+| `hiccup_core` | **runs** | record of two `:string`s; delegates whole |
+| `tokens_core`, `hig_core` | parity gate | see below — structurally delegable, but the cost lands on browsers |
+| `style_core`, `tokens_document`, `hig_document` | parity gate | not attempted in this tranche |
+
+The token/HIG emitters split in two:
+
+- `group-css` / `nested-css` **cannot cross at all.** They carry a
+  `[:map :keyword :string]` inside the guest, and the 64-node ADT limit refuses
+  at **30 entries** (measured 2026-08-12; max accepted is 29, for both). The
+  largest real group today is **18** (`:hig/color`, `:hig/palette`) — 1.6×
+  headroom on a collection that grows every time the design system gains a
+  token, against the 10× that made `fsm` delegable in ADR-2608112100.
+- Every other export **is** structurally delegable — all-`:string` record
+  fields, no `:i64` field, and no `string-substring` in the compiled KIR — but
+  delegating them was **declined**. Their host call sites are
+  `shitsuke.tokens/css-variables` and `shitsuke.hig/hig-css`, and
+  `kotoba-ui.theme/theme-css` calls the latter on the browser render path of a
+  library 24 repos depend on. Delegation would move emitting the design
+  system's CSS from *works on require* to *throws unless `register-kir!` ran
+  first*. `rawtext-breakout?` does not pay that: on ClojureScript apps render
+  through reagent, not through `->html`. Two of them (`hig/layer-order-css`,
+  `hig/text-style-classes`) are additionally top-level `def`s, so delegating
+  them would make *loading* the design system depend on a registered artifact.
+
+### ClojureScript consumers: what changed
+
+**Loading is unchanged.** Nothing delegated is evaluated at load time, so
+`(require '[shitsuke.hiccup])` works exactly as before.
+
+**One call changed.** Rendering a `<script>` or `<style>` element through
+`shitsuke.hiccup/->html` on ClojureScript now needs the KIR registered first,
+because there is no classpath to read the artifact from:
+
+```clojure
+(require '[shitsuke.kotoba-oracle :as oracle] '[cljs.reader :as reader])
+(oracle/register-kir! :hiccup-core (reader/read-string <hiccup-core.kir.edn>))
+```
+
+Without it, `->html` **throws** rather than skipping the check. That is
+deliberate: a silent fallback around a missing security core is how an
+unchecked payload reaches a page. Everything else in `shitsuke.hiccup` —
+including `->html` of any markup with no raw-text element — is untouched.
+
+`clojure -M:cljs-check` runs the delegated path on ClojureScript/Node and
+asserts both the refusal and the answers. A green JVM suite is not evidence
+about ClojureScript: two runtime asymmetries in the KIR interpreter were
+measured across the fleet on 2026-08-12 that are invisible from the JVM.
+
 ## Tests
 
 ```bash
-clojure -M:test
+clojure -M:test        # JVM suite, including the drift and delegation gates
+clojure -M:cljs-check  # the delegated path on ClojureScript/Node
+clojure -M:test:gen    # regenerate resources/shitsuke/oracle/*.kir.edn
 ```
 
 ## Design
