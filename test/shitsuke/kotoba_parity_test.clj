@@ -36,12 +36,29 @@
 (defn- kotoba-literal [s]
   (str \" (-> s (str/replace "\\" "\\\\") (str/replace "\"" "\\\"")) \"))
 
+(defn- widen-export
+  "Name the appended cases in the module's own export list.
+
+  New as of 2026-08-12. The four modules this harness drives now declare an
+  `(:export …)` so a host can call them without recompiling, and `ir/execute`
+  runs exported functions only — so a case that is merely appended is refused
+  with \"function is not exported\". This appends to whatever list the module
+  already declares rather than restating four different lists here, which also
+  means adding an entry point to a module does not have to be mirrored in the
+  harness."
+  [port-source cases]
+  (str/replace-first port-source #"\(:export \[([^\]]+)\]\)"
+                     (fn [[_ names]]
+                       (str "(:export [" names " "
+                            (str/join " " (map first cases)) "])"))))
+
 (defn- compile-cases
   [port-source cases]
   (let [defs (for [[name body] cases]
                (str "(defn " name " [] :string " body ")"))
         kir (:kir (compiler/compile-source
-                   (str port-source "\n" (str/join "\n" defs)) :wasm32-kotoba-v1 {}))]
+                   (str (widen-export port-source cases) "\n" (str/join "\n" defs))
+                   :wasm32-kotoba-v1 {}))]
     (into {} (map (fn [[name _]] [name (ir/execute kir (symbol name) [])]) cases))))
 
 (defn- typed-map-literal [m]

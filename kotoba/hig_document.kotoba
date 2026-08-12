@@ -2,6 +2,22 @@
   ;; Delivery 6 third cutover (shitsuke HIG). Same document vocabulary as
   ;; tokens_document with prefix fixed to "hig".
   ;; T5.2 + document-in-record (compiler 7691b1ae): multi-arg pure fold.
+  ;;
+  ;; The entry points are exported, so a host can call them. They were not —
+  ;; like tokens_document this module carried no comment about it either way.
+  ;; Measured 2026-08-12, two things refuse a declared list and neither is the
+  ;; parity harness: it must contain `main` ("main entrypoint must be
+  ;; exported"), and `ir/execute` runs exported functions only ("function is
+  ;; not exported"), so the harness names its own appended cases in it too.
+  ;;
+  ;; The list is narrower than tokens_document's on purpose: only the vendored
+  ;; sample corpora and the renderer have a caller today, and a `:document`
+  ;; crosses the entry boundary in both directions, so a host composes
+  ;; `(render-group (sample-colors-doc))` across two calls. The constructors
+  ;; (`entry` / `group-doc` / `nested-doc`), the folds and the field readers
+  ;; stay internal until something asks for them; tokens_document is where the
+  ;; construction surface is exercised.
+  (:export [main render-group layer-order-css sample-root sample-colors-doc sample-body-text-doc])
   (:schemas {:higdoc/entry [:record :higdoc/entry
                             [[:name :keyword] [:value :string]]]
              :higdoc/group [:record :higdoc/group

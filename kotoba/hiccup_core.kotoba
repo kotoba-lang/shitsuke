@@ -1,5 +1,20 @@
 (ns hiccup-core
-  ;; No :export: the parity harness appends zero-arg case defns via KIR.
+  ;; The predicate is exported, so a host can call it — which for a security
+  ;; judgement is the point of porting it at all.
+  ;;
+  ;; It was not, and the comment here named the parity harness as the reason —
+  ;; it appends zero-arg case defns and runs those. That is still how the
+  ;; harness works, and it was never what refused an export list. Measured
+  ;; 2026-08-12: a declared list without `main` is refused with "main
+  ;; entrypoint must be exported", and `ir/execute` runs exported functions
+  ;; only ("function is not exported"), so the harness has to name its own
+  ;; cases in the list too. See tokens_core.kotoba for the long form.
+  ;;
+  ;; As in style_core this list names every `defn`, because the module defines
+  ;; exactly the predicate, the terminator it is built from, and `main`, and
+  ;; all three already have a caller. What stays out is on the .cljc side, not
+  ;; hidden here: the throw, the tree walk and the RAWTEXT child flattening.
+  (:export [main rawtext-terminator rawtext-breakout?])
   (:schemas {:hic/rawtext-breakout [:record :hic/rawtext-breakout
                                     [[:tag :string] [:content :string]]]}))
 

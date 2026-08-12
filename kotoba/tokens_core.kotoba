@@ -1,5 +1,23 @@
 (ns tokens-core
-  ;; No :export: parity harness appends zero-arg case defns via KIR.
+  ;; The entry points are exported, so a host can call them.
+  ;;
+  ;; They were not, and the comment here named the parity harness as the
+  ;; reason — it appends zero-arg case defns and runs those. That is still how
+  ;; the harness works, and it was never what refused an export list. Measured
+  ;; 2026-08-12 against the pinned compiler (deps.edn c3be07fb) two things
+  ;; were: a declared list without `main` is refused with "main entrypoint
+  ;; must be exported", and `ir/execute` runs exported functions only
+  ;; ("function is not exported"), so the harness has to name its own cases in
+  ;; the list too — one `str/replace-first` on the vector below. `main` is a
+  ;; smoke entry point, so it is listed here rather than deleted.
+  ;;
+  ;; The list names the functions that already have a caller, not every
+  ;; `defn`. The tail-recursive fold `group-from` and the vendored
+  ;; `default-colors` / `default-spacing` / `default-breakpoints` corpora stay
+  ;; internal, reachable through `group-css` and `default-scalar-root`. A list
+  ;; that admitted every `defn` would fix an API surface this library does not
+  ;; intend to promise.
+  (:export [main css-var-name scalar-decl nested-decl group-css root-css normalize-hex default-scalar-root])
   (:schemas {;; T5.2 native guest record: multi-arg pure → single record
              :tok/css-var-name [:record :tok/css-var-name
                                 [[:group :string] [:k :string]]]

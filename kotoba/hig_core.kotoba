@@ -1,5 +1,20 @@
 (ns hig-core
-  ;; No :export: parity harness appends zero-arg case defns via KIR.
+  ;; The entry points are exported, so a host can call them.
+  ;;
+  ;; They were not, and the comment here named the parity harness as the
+  ;; reason — it appends zero-arg case defns and runs those. That is still how
+  ;; the harness works, and it was never what refused an export list. Measured
+  ;; 2026-08-12: a declared list without `main` is refused with "main
+  ;; entrypoint must be exported", and `ir/execute` runs exported functions
+  ;; only ("function is not exported"), so the harness has to name its own
+  ;; cases in the list too. See tokens_core.kotoba for the long form.
+  ;;
+  ;; The list names the functions that already have a caller. The folds
+  ;; (`group-from`, `nested-from`), the per-line `decl` / `scalar-decl` /
+  ;; `nested-decl` primitives they compose, and the vendored `sample-*`
+  ;; corpora stay internal — reachable through `group-css`, `nested-css` and
+  ;; `sample-root`.
+  (:export [main group-css group-scalar-decl nested-css layer-order-css layer-wrap text-style-props text-style-props-token text-style-class sample-root])
   (:schemas {;; T5.2 native guest record: multi-arg pure → single record
              :hig/css-var-name [:record :hig/css-var-name
                                 [[:group :string] [:k :string]]]
