@@ -11,16 +11,27 @@
   JVM. Each case is a zero-argument `.kotoba` function; no typed value is
   marshalled from Clojure. Map walks are key-sorted on both sides.
 
-  T5.2: multi-arg pure folded into guest records; cases call via record-new."
+  T5.2: multi-arg pure folded into guest records; cases call via record-new.
+
+  style_core / hiccup_core widen the slice past the token pipeline: the
+  `shitsuke__<component>` class convention and the <style> SSR wrapper
+  (shitsuke.style), and the RAWTEXT breakout predicate behind
+  shitsuke.hiccup's XSS guard. The guard's THROW stays host-side —
+  Kotoba's `:explicit-errors` invariant is permanent — so only the
+  judgement crosses."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]
             [shitsuke.hig :as hig]
+            [shitsuke.hiccup :as hiccup]
+            [shitsuke.style :as style]
             [shitsuke.tokens :as tokens]))
 
 (def tokens-source (slurp "kotoba/tokens_core.kotoba"))
 (def hig-source (slurp "kotoba/hig_core.kotoba"))
+(def style-source (slurp "kotoba/style_core.kotoba"))
+(def hiccup-source (slurp "kotoba/hiccup_core.kotoba"))
 
 (defn- kotoba-literal [s]
   (str \" (-> s (str/replace "\\" "\\\\") (str/replace "\"" "\\\"")) \"))
@@ -203,3 +214,91 @@
         (is (str/includes? sample "--hig-text-display3-font-size: clamp(40px, 5vw + 8px, 64px);"))
         (is (str/includes? sample "--hig-hairline: 0.5px;"))
         (is (str/includes? css "--hig-text-display3-font-size: clamp(40px, 5vw + 8px, 64px);"))))))
+
+;; --- style ----------------------------------------------------------------
+
+(defn- sty-inline-style [css]
+  (str "(inline-style (record-new [:ref :sty/inline] " (kotoba-literal css) "))"))
+
+(deftest style-class-name-and-inline-wrapper-are-byte-identical
+  (let [css (style/root-css)
+        actual (compile-cases style-source
+                              {"c_button" "(class-name \"button\")"
+                               "c_card" "(class-name \"card\")"
+                               "c_hyphen" "(class-name \"nav-bar\")"
+                               "wrap_empty" (sty-inline-style "")
+                               "wrap_decl" (sty-inline-style "  --shitsuke-colors-ink: #17202A;")
+                               "wrap_root" (sty-inline-style css)})]
+    (testing "scoped class convention"
+      (is (= (style/class-name :button) (get actual "c_button")))
+      (is (= (style/class-name :card) (get actual "c_card")))
+      (is (= "shitsuke__button" (get actual "c_button")))
+      (testing "the host keeps the (name component) coercion; the port takes strings"
+        (is (= (style/class-name :nav-bar) (get actual "c_hyphen")))))
+    (testing "<style> SSR wrapper"
+      (is (= (style/inline-style "") (get actual "wrap_empty")))
+      (is (= (style/inline-style "  --shitsuke-colors-ink: #17202A;")
+             (get actual "wrap_decl"))))
+    (testing "wrapping the live default token emission"
+      (is (= (style/inline-style css) (get actual "wrap_root")))
+      (is (str/starts-with? (get actual "wrap_root") "<style>\n"))
+      (is (str/ends-with? (get actual "wrap_root") "\n</style>"))
+      (is (str/includes? (get actual "wrap_root") "--shitsuke-colors-ink: #17202A;")))))
+
+;; --- hiccup: RAWTEXT breakout decision ------------------------------------
+
+(defn- hic-breakout [tag content]
+  (str "(if (rawtext-breakout? (record-new [:ref :hic/rawtext-breakout] "
+       (kotoba-literal tag) " " (kotoba-literal content) ")) \"true\" \"false\")"))
+
+(defn- cljc-breakout?
+  "The .cljc guard signals by throwing; the predicate it is guarding is
+  'did assert-no-rawtext-breakout! reject this content'."
+  [tag content]
+  (try
+    (hiccup/->html [(keyword tag) [:hiccup/raw content]])
+    false
+    (catch clojure.lang.ExceptionInfo _ true)))
+
+(deftest hiccup-rawtext-breakout-predicate-matches-the-cljc-guard
+  (let [cases {"clean" ["style" "body { color: red; }"]
+               "clean_lt" ["style" "a < b"]
+               "clean_other_tag" ["style" "</script"]
+               "lower" ["style" "x</style>y"]
+               "upper" ["style" "x</STYLE>y"]
+               "mixed" ["style" "x</StYlE>y"]
+               "no_gt" ["style" "x</style y"]
+               "script_lower" ["script" "var a = \"</script>\";"]
+               "script_mixed" ["script" "var a = \"</ScRiPt>\";"]
+               "script_clean" ["script" "var a = 1 < 2;"]}
+        actual (compile-cases hiccup-source
+                              (into {} (map (fn [[k [tag content]]]
+                                              [k (hic-breakout tag content)])
+                                            cases)))]
+    (doseq [[k [tag content]] cases]
+      (testing (str k " (<" tag ">)")
+        (is (= (str (cljc-breakout? tag content)) (get actual k))
+            (str "port and .cljc guard disagree on " (pr-str content)))))
+    (testing "folding the tag too keeps the port independent of the host"
+      ;; No .cljc oracle here: shitsuke.hiccup only reaches this decision for a
+      ;; tag in html.core/raw-text-tags, which is lower-case by construction,
+      ;; so an upper-cased tag never arrives today. The port does not rely on
+      ;; that guarantee.
+      (let [tagged (compile-cases hiccup-source
+                                  {"upcase_tag" (hic-breakout "STYLE" "x</style>y")})]
+        (is (= "true" (get tagged "upcase_tag")))))
+    (testing "case-insensitivity of the content is what the folding buys"
+      (is (= "true" (get actual "lower")))
+      (is (= "true" (get actual "upper")))
+      (is (= "true" (get actual "mixed"))))
+    (testing "the terminator is `</tag`, not `</tag>`"
+      (is (= "true" (get actual "no_gt"))))
+    (testing "a different tag's terminator does not trip the guard"
+      (is (= "false" (get actual "clean_other_tag"))))))
+
+(deftest hiccup-rawtext-terminator-shape
+  (let [actual (compile-cases hiccup-source
+                              {"style" "(rawtext-terminator \"style\")"
+                               "script" "(rawtext-terminator \"script\")"})]
+    (is (= "</style" (get actual "style")))
+    (is (= "</script" (get actual "script")))))
