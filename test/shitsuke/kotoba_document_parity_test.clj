@@ -45,11 +45,26 @@
                               (pr-str k) " " (kotoba-literal (str v)) "))"))
                        (sort-by (comp str key) m)))
         ")")))
+
+(defn- widen-export
+  "Name the appended cases in the module's own export list.
+
+  New as of 2026-08-12: the modules declare an `(:export …)` so a host can
+  call them without recompiling, and `ir/execute` runs exported functions
+  only, so an appended case that is not in the list is refused with
+  \"function is not exported\". Appends to whatever the module declares."
+  [port-source case-names]
+  (str/replace-first port-source #"\(:export \[([^\]]+)\]\)"
+                     (fn [[_ names]]
+                       (str "(:export [" names " "
+                            (str/join " " case-names) "])"))))
+
 (defn- compile-and-run [port-source cases]
   (let [defs (for [[name body] cases]
                (str "(defn " name " [] :string " body ")"))
         kir (:kir (compiler/compile-source
-                   (str port-source "\n" (str/join "\n" defs))
+                   (str (widen-export port-source (map first cases))
+                        "\n" (str/join "\n" defs))
                    :js-kotoba-v1))]
     (into {} (map (fn [[name _]]
                     [name (ir/execute kir (symbol name) [] {:fuel fuel})])
@@ -146,7 +161,9 @@
     (is (str/includes? (get docs "sample") "--hig-text-display3-font-weight: 700;"))))
 
 (deftest token-group-document-identity
-  (let [source (str tokens-doc "\n"
+  (let [source (str (widen-export tokens-doc
+                                  ["g" "g-css" "g-dig" "g-print" "round-ok" "dig-stable"])
+                    "\n"
                     "(defn g [] :document (default-colors-doc))\n"
                     "(defn g-css [] :string (render-group (g)))\n"
                     "(defn g-dig [] :string (group-digest (g)))\n"

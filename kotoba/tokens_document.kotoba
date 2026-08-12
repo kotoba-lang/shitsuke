@@ -3,6 +3,23 @@
   ;; → CSS custom-property stream. Form-A tokens_core remains oracle.
   ;; T5.2 + document-in-record (compiler 7691b1ae): multi-arg pure with
   ;; :document fields fold into guest records.
+  ;;
+  ;; The entry points are exported, so a host can call them. They were not —
+  ;; unlike the form-A cores this module carried no comment about it either
+  ;; way, so nothing outside a test that recompiles could reach it. Measured
+  ;; 2026-08-12, two things refuse a declared list and neither is the parity
+  ;; harness: it must contain `main` ("main entrypoint must be exported"), and
+  ;; `ir/execute` runs exported functions only ("function is not exported"),
+  ;; so the harness names its own appended cases in the list too.
+  ;;
+  ;; A `:document` crosses the KIR entry boundary in both directions, so the
+  ;; constructors (`entry` / `group-doc` / `nested-doc`), the renderer
+  ;; (`render-group`) and the identity trio (`group-digest` / `group-print` /
+  ;; `group-read`) are usable from a host as a pipeline. The folds
+  ;; (`render-entries-from` / `render-props-from`), the field readers and the
+  ;; per-line emitters stay internal — they are how `render-group` is built,
+  ;; not what it promises.
+  (:export [main entry group-doc nested-doc render-group root-css normalize-hex default-colors-doc default-scalar-root group-digest group-print group-read])
   (:schemas {:tokdoc/entry [:record :tokdoc/entry
                             [[:name :keyword] [:value :string]]]
              :tokdoc/group [:record :tokdoc/group
