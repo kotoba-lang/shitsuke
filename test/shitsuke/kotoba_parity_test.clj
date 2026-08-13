@@ -333,7 +333,7 @@
   ;; out six times inside the components. The oracle is therefore the :class the
   ;; real components actually emit, not a restatement of the rule here — a
   ;; restatement would only prove this file agrees with itself.
-  (let [act->str @#'components/act->str
+  (let [act->str components/act->str   ; public since the liquid-glass dedup
         actual (compile-cases components-source
                               {"act_ns" "(act-attr \"cart\" \"add\")"
                                "act_none" "(act-attr \"\" \"new-deck\")"
