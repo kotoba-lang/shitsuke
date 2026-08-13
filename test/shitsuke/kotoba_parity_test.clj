@@ -23,6 +23,7 @@
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]
+            [shitsuke.components :as components]
             [shitsuke.hig :as hig]
             [shitsuke.hiccup :as hiccup]
             [shitsuke.style :as style]
@@ -32,6 +33,7 @@
 (def hig-source (slurp "kotoba/hig_core.kotoba"))
 (def style-source (slurp "kotoba/style_core.kotoba"))
 (def hiccup-source (slurp "kotoba/hiccup_core.kotoba"))
+(def components-source (slurp "kotoba/components_core.kotoba"))
 
 (defn- kotoba-literal [s]
   (str \" (-> s (str/replace "\\" "\\\\") (str/replace "\"" "\\\"")) \"))
@@ -319,3 +321,39 @@
                                "script" "(rawtext-terminator \"script\")"})]
     (is (= "</style" (get actual "style")))
     (is (= "</script" (get actual "script")))))
+
+;; --- components -----------------------------------------------------------
+
+(deftest components-act-attr-and-class-join-match-the-cljc
+  ;; The fifth module of the shitsuke slice. `act->str` is private in
+  ;; components.cljc and stays private — the point is that the two agree, not
+  ;; that the boundary moves (same posture as murakumo's prices parity test).
+  ;;
+  ;; `class-join` has no counterpart function to reach for: the rule is written
+  ;; out six times inside the components. The oracle is therefore the :class the
+  ;; real components actually emit, not a restatement of the rule here — a
+  ;; restatement would only prove this file agrees with itself.
+  (let [act->str @#'components/act->str
+        actual (compile-cases components-source
+                              {"act_ns" "(act-attr \"cart\" \"add\")"
+                               "act_none" "(act-attr \"\" \"new-deck\")"
+                               "act_dash" "(act-attr \"slides\" \"new-deck\")"
+                               "cls_plain" "(class-join \"shitsuke__button\" \"\")"
+                               "cls_extra" "(class-join \"shitsuke__button\" \"wide\")"
+                               "cls_multi" "(class-join \"shitsuke__input\" \"a b\")"
+                               "cls_field" "(class-join \"shitsuke__field\" \"wide\")"})]
+    (testing "data-act keeps the keyword namespace"
+      (is (= (act->str :cart/add) (get actual "act_ns")))
+      (is (= (act->str :new-deck) (get actual "act_none")))
+      (is (= (act->str :slides/new-deck) (get actual "act_dash")))
+      (is (= "cart/add" (get actual "act_ns"))))
+    (testing "the class rule, against the class the components emit"
+      (is (= (get-in (components/button "L") [1 :class])
+             (get actual "cls_plain")))
+      (is (= (get-in (components/button "L" {:class "wide"}) [1 :class])
+             (get actual "cls_extra")))
+      (is (= (get-in (components/input {:class "a b"}) [1 :class])
+             (get actual "cls_multi")))
+      (testing "and it is the same rule in a second component, on its own base"
+        (is (= (get-in (components/field "L" [:span] {:class "wide"}) [1 :class])
+               (get actual "cls_field")))))))
