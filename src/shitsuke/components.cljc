@@ -13,10 +13,25 @@
   (mirrors mangaka reader's wire-lang-switch! pattern)."
   (:require [shitsuke.style :as s]))
 
-(defn- act->str
+(defn act->str
   "Render an `act` value to the data-act attribute string, preserving the
   keyword namespace: :cart/add → \"cart/add\", :new-deck → \"new-deck\".
-  Strings pass through; nil stays nil (attribute dropped)."
+  Strings pass through; nil stays nil (attribute dropped).
+
+  **Public because a second library already needed it.** liquid-glass-ui wraps
+  these components and has to produce the same attribute on the elements it
+  builds itself; while this was private it carried a byte-identical copy, used
+  at twelve call sites. A rule that exists twice is a rule that can be fixed
+  once and stay wrong in the other copy — the same reason
+  `shitsuke.hiccup`'s RAWTEXT predicate moved to the shipped core.
+
+  The namespace-preserving join itself is specified in
+  `kotoba/components_core.kotoba` as `act-attr` and gated by
+  `kotoba-parity-test`. It is not *executed* from there: unlike the RAWTEXT
+  predicate this is a string join, not a security decision, and pulling the
+  oracle chain into every attribute render would cost more than the duplication
+  it removes. The Kotoba module is the specification; this is the one
+  implementation."
   [a]
   (cond
     (nil? a) nil
