@@ -33,8 +33,8 @@
         ;; core here plus the parity tests that compare against 1/0 — not a pin
         ;; change. Interpreter-only advancement is worse: it gives an emitter
         ;; and an interpreter that disagree, measured at 1 failure / 32 errors.
-        io.github.kotoba-lang/kotoba-kir
-        {:git/url "https://github.com/kotoba-lang/kotoba-kir.git"
+        io.github.kotoba-lang/osaho
+        {:git/url "https://github.com/kotoba-lang/osaho.git"
          :git/sha "838cd77c55f069336e7da9134c1921d67f98ed92"}}
  :aliases
  {:test  {:extra-paths ["test"]
