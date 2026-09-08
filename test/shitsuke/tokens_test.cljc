@@ -1,5 +1,5 @@
 (ns shitsuke.tokens-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.lang.text] [clojure.test :refer [deftest is testing]]
             [shitsuke.tokens :as t]))
 
 (deftest deep-merge-test
@@ -16,15 +16,15 @@
 
 (deftest css-variables-test
   (let [css (t/css-variables)]
-    (is (clojure.string/starts-with? css ":root {"))
-    (is (clojure.string/includes? css "--shitsuke-colors-ink: #17202A;"))
-    (is (clojure.string/includes? css "--shitsuke-spacing-4: 16px;")))
+    (is (kotoba.lang.text/starts-with? css ":root {"))
+    (is (kotoba.lang.text/includes? css "--shitsuke-colors-ink: #17202A;"))
+    (is (kotoba.lang.text/includes? css "--shitsuke-spacing-4: 16px;")))
   (testing "type tokens expand to per-prop vars"
     (let [css (t/css-variables)]
-      (is (clojure.string/includes? css "--shitsuke-type-title-font-size: 38px;"))))
+      (is (kotoba.lang.text/includes? css "--shitsuke-type-title-font-size: 38px;"))))
   (testing "overrides flow into emitted vars"
     (let [css (t/css-variables {:shitsuke/colors {:ink "#000000"}})]
-      (is (clojure.string/includes? css "--shitsuke-colors-ink: #000000;")))))
+      (is (kotoba.lang.text/includes? css "--shitsuke-colors-ink: #000000;")))))
 
 (deftest normalize-hex-test
   (is (= "#496B9A" (t/normalize-hex "496B9A")))
@@ -44,4 +44,4 @@
     (is (= "38px" (get-in ov [:shitsuke/type :title :font-size])))
     (is (= "#17202A" (get-in ov [:shitsuke/type :title :color])))
     (is (= 700 (get-in ov [:shitsuke/type :title :font-weight])))
-    (is (clojure.string/starts-with? (get-in ov [:shitsuke/type :title :font-family]) "Aptos Display"))))
+    (is (kotoba.lang.text/starts-with? (get-in ov [:shitsuke/type :title :font-family]) "Aptos Display"))))

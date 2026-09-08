@@ -1,6 +1,6 @@
 (ns shitsuke.components-test
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [shitsuke.components :as c]
             [shitsuke.hiccup :as h]))
 
@@ -162,16 +162,16 @@
 
 (deftest mode-tabs-test
   (let [v (c/mode-tabs [[:visual "Visual"] [:edn "EDN"]] :visual)]
-    (is (clojure.string/includes? (html v) "class=\"shitsuke__tab shitsuke__tab--active\""))
-    (is (clojure.string/includes? (html v) "data-act=\"visual\""))))
+    (is (str/includes? (html v) "class=\"shitsuke__tab shitsuke__tab--active\""))
+    (is (str/includes? (html v) "data-act=\"visual\""))))
 
 (deftest thumb-test
-  (is (clojure.string/includes? (html (c/thumb "p" true)) "shitsuke__thumb shitsuke__thumb--active"))
-  (is (clojure.string/includes? (html (c/thumb "p" false {:act :sel})) "data-act=\"sel\"")))
+  (is (str/includes? (html (c/thumb "p" true)) "shitsuke__thumb shitsuke__thumb--active"))
+  (is (str/includes? (html (c/thumb "p" false {:act :sel})) "data-act=\"sel\"")))
 
 (deftest pane-test
-  (is (clojure.string/includes? (html (c/pane true "x")) "hidden"))
-  (is (not (clojure.string/includes? (html (c/pane false "x")) "hidden"))))
+  (is (str/includes? (html (c/pane true "x")) "hidden"))
+  (is (not (str/includes? (html (c/pane false "x")) "hidden"))))
 
 (deftest card-test
   (is (= "<section class=\"shitsuke__card\">body</section>"

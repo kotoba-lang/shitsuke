@@ -8,7 +8,12 @@
  ;; shadow-css are build/dev aliases only (consumer picks the host impl via
  ;; the re-frame.core / reagent.core compat shims). Same split as
  ;; kami-mangaka-reader-clj + slides.
- :deps {io.github.kotoba-lang/html
+ :deps {
+        ;; kotoba.lang.text, not clojure.string. Pinned as an explicit floor:
+        ;; tools.deps takes the NEWEST sha it is shown, so without a floor here
+        ;; this repo silently rides whatever a sibling happens to name.
+        io.github.kotoba-lang/text {:git/sha "73bdb13ae7a3d004b44bca08be03a3191157a38f"}
+       io.github.kotoba-lang/html
         {:git/url "https://github.com/kotoba-lang/html.git"
          ;; inferred option fallback in the document renderer
          :git/sha "23566059c5b25efd2a91030d5b19b98f50756b01"}

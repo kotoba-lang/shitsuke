@@ -21,7 +21,7 @@
   consumers; only `deep-merge` is reused). Portable .cljc, zero deps,
   babashka-safe (string building via str/clojure.string, no `format`)."
   (:require [shitsuke.tokens :as t]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 ;; ---------------------------------------------------------------------------
 ;; Font stacks

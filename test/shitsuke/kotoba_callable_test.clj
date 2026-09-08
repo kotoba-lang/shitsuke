@@ -29,7 +29,7 @@
   require. Targets match the harness that gates each module — the form-A cores
   on `:wasm32-kotoba-v1`, the document cores on `:js-kotoba-v1` — so the
   shipped shape is checked on the target it is gated on."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]))
