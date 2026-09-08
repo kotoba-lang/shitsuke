@@ -19,7 +19,7 @@
   shitsuke.hiccup's XSS guard. The guard's THROW stays host-side —
   Kotoba's `:explicit-errors` invariant is permanent — so only the
   judgement crosses."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]

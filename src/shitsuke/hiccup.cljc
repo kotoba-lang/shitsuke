@@ -32,7 +32,7 @@
                                          and content containing a
                                          case-insensitive \"</tag\" breakout
                                          sequence is rejected."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [html.core :as html]
             [shitsuke.kotoba-oracle :as oracle]))
 

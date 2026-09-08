@@ -1,6 +1,6 @@
 (ns shitsuke.hig-test
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [shitsuke.hig :as hig]))
 
 (deftest appearance-completeness-test

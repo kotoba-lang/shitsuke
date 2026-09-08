@@ -12,7 +12,7 @@
   rules. This namespace owns the class-name convention + a tiny registry so
   tests can assert stable names without shadow-css at runtime."
   (:require [shitsuke.tokens :as t]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (defn class-name
   "Stable scoped class for a component: `shitsuke__button`. Used both as the

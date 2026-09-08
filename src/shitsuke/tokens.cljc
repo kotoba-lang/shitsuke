@@ -15,7 +15,7 @@
   emitter turns tokens into `--shitsuke-<group>-<name>` custom properties on
   :root, so any component can consume `var(--shitsuke-...)`. Portable .cljc,
   zero deps, babashka-safe."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (def default-tokens
   "Initial web-CSS token set. Deliberately small; dark mode / i18n typography
