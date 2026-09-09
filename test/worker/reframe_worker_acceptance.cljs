@@ -25,7 +25,7 @@
             ["node:fs" :as fs]
             ["node:os" :as os]
             ["node:path" :as path]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 ;; The script is the first .cljs in argv, not argv[2]: measured twice, because
 ;; argv[1] is nbb itself and argv[2] is `--classpath` as soon as one is passed.
