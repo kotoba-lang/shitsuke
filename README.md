@@ -24,8 +24,12 @@ shitsuke = tokens + hiccup + style + re-frame seam + components + editor kernels
 | `shitsuke.hiccup` | dependency-free hiccup → HTML string renderer (SSR twin of the view contract) |
 | `shitsuke.style` | token → CSS custom properties + stable `shitsuke__*` class-name registry |
 | `shitsuke.re-frame` | tiny re-frame-shaped runtime (7-fn portable subset) for JVM/SSR/WASM |
-| `shitsuke.re-frame.core` | host seam: real re-frame (cljs) ‖ mini runtime (clj) |
-| `shitsuke.reagent.core` | host seam: real reagent (cljs) ‖ `hiccup/->html` (clj) |
+| `shitsuke.re-frame.core` | host seam: real re-frame (cljs) ‖ mini runtime (clj) ‖ **Kotoba guest** (`install-guest!`) |
+| `shitsuke.reagent.core` | host seam: real reagent (cljs) ‖ `hiccup/->html` (clj) ‖ **Kotoba view** (`kotoba-view`) |
+| `shitsuke.kotoba.guest` | portable bridge to a Kotoba re-frame guest (EDN text in, Clojure data out) |
+| `kotoba/reframe_core.kotoba` | re-frame's db / event / subscription / effect algebra, in Kotoba |
+| `kotoba/reagent_core.kotoba` | reagent's element builders, in Kotoba (a view is a `:document`) |
+| `runtime/reframe-worker.mjs` | Cloudflare Worker host for a Kotoba guest (mechanism only) |
 | `shitsuke.components` | pure-hiccup UI primitives (button/field/input/toolbar/mode-tabs/…) |
 | `kotoba.editor` | portable editor state helpers: selection, undo/redo, nudge, alignment |
 | host build | shadow-css `:pages` extraction, reagent/re-frame `:cljs` aliases |
@@ -147,9 +151,84 @@ asserts both the refusal and the answers. A green JVM suite is not evidence
 about ClojureScript: two runtime asymmetries in the KIR interpreter were
 measured across the fleet on 2026-08-12 that are invisible from the JVM.
 
+## re-frame and reagent, written in Kotoba
+
+`kotoba/reframe_core.kotoba` and `kotoba/reagent_core.kotoba` are the two
+halves of the re-frame pair as a Kotoba library, so a handler and a view can
+leave ClojureScript **without their call sites leaving**:
+`(rf/dispatch [:counter/inc])` and `@(rf/subscribe [:counter/count])` are
+unchanged, and nothing at the call site says where the handler now runs.
+
+```clojure
+(require '[shitsuke.kotoba.guest :as kg] '[shitsuke.re-frame.core :as rf])
+
+(def g (kg/guest (fn [export & args]                 ; one instance per call:
+                   (let [inst (.instantiateKotoba m)] ; fuel is spent, not renewed
+                     (.apply (aget inst export) inst (clj->js args))))))
+
+(rf/install-guest! g {:events  #{:counter/inc :counter/reset}
+                      :queries #{:counter/count}})
+(rf/init-db! g)
+```
+
+What each side owns, and why the split falls where it does:
+
+| | owner | why |
+|---|---|---|
+| event → db, subscription → value, view → document | **the guest** | these are re-frame's own signatures; a Kotoba function is exactly that shape |
+| the registry (`reg-event-db`) | the host | Kotoba dispatch is static, so an app module spells its registry as one `cond` over `event-id` |
+| `app-db` itself | the host | `atom` in Kotoba is `:atom-local` — a let-bound cell that may not be returned, stored or captured, so the db is a value that comes in and goes out |
+| performing effects | the host | a handler returns an inert `{:db .. :fx [[id value] ..]}`; the guest compiles with an **empty `requiredCapabilities`** even when the app it implements sends mail |
+
+The boundary is **EDN text**, printed and read inside the guest
+(`document-edn-print` / `document-edn-read`). Measured 2026-09-09 through the
+emitted ESM: the guest's reader accepts `pr-str` output as it comes — commas,
+any key order, keys the handler does not know, escaped quotes and non-ASCII —
+so the crossing is `pr-str` one way and `read-string` the other. Not JSON:
+JSON has no keyword and no i64, and the ABI hands an i64 across as a BigInt,
+which `JSON.stringify` refuses outright.
+
+### On Cloudflare
+
+`runtime/reframe-worker.mjs` serves a compiled guest from a Worker. It is
+`.mjs` because a Worker entry has to be JS, and it holds no logic: every
+judgement — what an event means, what a subscription answers, whether the body
+parses — is the guest's. A malformed body traps inside `document-edn-read`
+with a named code, and that trap becomes a 400.
+
+```js
+import { installReframeWorker } from "@shitsuke/runtime/reframe-worker.mjs";
+import * as guest from "./app.mjs";           // amu -M compile --target js
+export default installReframeWorker(guest);
+```
+
+Measured 2026-09-09 on workerd (wrangler 4.103.0, `wrangler dev --local`):
+10/10 acceptance checks, including an i64 crossing `POST /api/step` and back,
+ordered effects out of `POST /api/dispatch`, and 400/404/405 on the three
+refusal paths.
+
+### Bounds that are real
+
+* A `:document` holds **256 nodes**, which is today's ceiling on one Kotoba
+  screen (about seven todo rows, measured in amu's driver). It is a value
+  budget, not something these libraries fix.
+* Attribute **values are strings** in `reagent-core`. A numeric or boolean
+  attribute goes through the host's hiccup.
+* An instance's **fuel is spent and never replenished**, so the host makes a
+  fresh instance per call. That is sound only because the guest is pure.
+* A Kotoba app module is a **multi-file project**: build it with
+  `kotoba -M module-lock` then `kotoba -M compile --module-lock`, not with the
+  single-file path.
+
 ## Tests
 
 ```bash
+nbb --classpath src test/kotoba/guest_acceptance.cljs   # the bridge against the emitted ESM
+nbb test/worker/reframe_worker_acceptance.cljs          # the Worker host on workerd
+# the guest, on :jvm-kir :js and :wasm. The CLI needs ABSOLUTE paths: a
+# relative one is "input must be a regular file" (measured 2026-09-09).
+kotoba -M test "$PWD/kotoba/reframe_core.kotoba"
+kotoba -M test "$PWD/kotoba/reagent_core.kotoba"
 clojure -M:test        # JVM suite, including the drift and delegation gates
 clojure -M:cljs-check  # the delegated path on ClojureScript/Node
 clojure -M:test:gen    # regenerate resources/shitsuke/oracle/*.kir.edn
