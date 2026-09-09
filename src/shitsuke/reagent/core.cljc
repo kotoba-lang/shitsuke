@@ -7,10 +7,25 @@
   the thin mount/escape hatch that picks the host impl.
 
     :cljs → real reagent 1.2.0 (rdom/render, as-element)
-    :clj  → shitsuke.hiccup/->html (SSR string; render writes the page)"
+    :clj  → shitsuke.hiccup/->html (SSR string; render writes the page)
+
+  `kotoba-view` adds a third source for the SAME hiccup data: a view function
+  written in Kotoba and compiled by amu. It returns a document, this turns it
+  into hiccup, and both renderers above take it unchanged -- the guest needs
+  no renderer of its own."
+  (:require [shitsuke.kotoba.guest :as guest])
   #?(:cljs (:require [reagent.core :as r]
                      [reagent.dom :as rdom])
      :clj  (:require [shitsuke.hiccup :as hic])))
+
+(defn kotoba-view
+  "Render a Kotoba guest's `view` of `db` as hiccup.
+
+  Host-independent on purpose: the result is the same hiccup value a cljs view
+  function would have returned, so reagent renders it live and
+  `shitsuke.hiccup/->html` renders it for SSR."
+  [g db]
+  (guest/document->hiccup (guest/view g db)))
 
 #?(:clj
    (do
