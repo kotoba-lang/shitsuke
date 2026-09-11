@@ -18,7 +18,7 @@
 ;; Exit codes are three-valued on purpose. 0 passed, 1 a real failure, and
 ;; 2 REFUSED -- the tools needed to answer are missing, which is not a pass.
 ;;
-;;   nbb test/worker/reframe_worker_acceptance.cljs
+;;   nbb test/worker/reframe_worker_acceptance.cljk
 
 (ns reframe-worker-acceptance
   (:require ["node:child_process" :as cp]
@@ -32,7 +32,7 @@
 ;; Both times the wrong element resolved a repo root that does not exist, and
 ;; the failure surfaced two steps later as "project path is not readable".
 (def script (or (first (filter (fn [a] (.endsWith a ".cljs")) (rest (.slice js/process.argv 0))))
-                "test/worker/reframe_worker_acceptance.cljs"))
+                "test/worker/reframe_worker_acceptance.cljk"))
 (def root (path/resolve (path/dirname (path/resolve script)) ".." ".."))
 (def port 8791)
 (def base (str "http://127.0.0.1:" port))

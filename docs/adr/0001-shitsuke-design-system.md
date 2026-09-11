@@ -14,7 +14,7 @@ Per ADR-2607270100 §10 / ADR-2607279200 Delivery #6, `kotoba/tokens_core.kotoba
 and `kotoba/hig_core.kotoba` port the pure token → CSS-string pipeline
 (`--shitsuke-*` / `--hig-*` emission, layer-order, text-style-props). Dual-render
 seams (reagent/re-frame) stay on the host `.cljc` side. Consumer APIs are
-unchanged. Byte-equality is gated by `test/shitsuke/kotoba_parity_test.clj`.
+unchanged. Byte-equality is gated by `test/shitsuke/kotoba_parity_test.cljk`.
 This is an oracle-backed experiment ahead of W4; not the final design-system API.
 
 ## 背景

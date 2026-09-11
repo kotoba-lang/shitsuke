@@ -9,12 +9,12 @@
 ;;
 ;; nbb rather than the JVM suite: this repo's `clojure -M:test` needs a JVM,
 ;; and the runtime order here puts nbb above it. The seam's :clj branch (the
-;; mini runtime + install-guest!) is covered by test/shitsuke/kotoba_guest_test.cljc.
+;; mini runtime + install-guest!) is covered by test/shitsuke/kotoba_guest_test.cljk.
 ;;
 ;; Exit codes: 0 passed, 1 failed, 2 REFUSED (the tools to answer are absent,
 ;; which is not a pass).
 ;;
-;;   nbb --classpath src test/kotoba/guest_acceptance.cljs
+;;   nbb --classpath src test/kotoba/guest_acceptance.cljk
 
 (ns kotoba.guest-acceptance
   (:require ["node:child_process" :as cp]
@@ -24,7 +24,7 @@
             [shitsuke.kotoba.guest :as kg]))
 
 (def script (or (first (filter (fn [a] (.endsWith a ".cljs")) (rest (.slice js/process.argv 0))))
-                "test/kotoba/guest_acceptance.cljs"))
+                "test/kotoba/guest_acceptance.cljk"))
 (def root (path/resolve (path/dirname (path/resolve script)) ".." ".."))
 
 (defn sh [cmd args]
