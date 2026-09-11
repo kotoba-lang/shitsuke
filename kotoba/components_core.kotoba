@@ -4,7 +4,7 @@
 ;; The decision core of `shitsuke.components` (ADR-2607270100 §10, form A).
 ;; Ported by poolside/laguna-s-2.1 through the orbench agent loop and gated by
 ;; kotoba -M inspect / -M test (jvm-kir, js, wasm) / aarch64 native + the
-;; byte-equality cases in test/shitsuke/kotoba_parity_test.clj.
+;; byte-equality cases in test/shitsuke/kotoba_parity_test.cljk.
 ;;
 ;; What crosses: the two string rules the namespace actually decides.
 ;;   act-attr   — the data-act value, namespace preserved (`act->str`)

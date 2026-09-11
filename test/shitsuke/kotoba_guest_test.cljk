@@ -10,7 +10,7 @@
 
   The guest here is therefore a text function, not the compiled artifact. What
   the compiled artifact actually answers is pinned separately and end to end by
-  `test/kotoba/guest_acceptance.cljs`, which builds
+  `test/kotoba/guest_acceptance.cljk`, which builds
   `kotoba/example_counter.kotoba` with amu and calls the emitted ESM. Neither
   test is sufficient alone: this one would pass against a guest that never
   compiled, and that one says nothing about re-frame registration."

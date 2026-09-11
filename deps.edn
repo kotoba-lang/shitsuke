@@ -64,7 +64,7 @@
   ;; Run the delegated RAWTEXT path on ClojureScript/Node. Separate from :test
   ;; because it is not a cljs.test suite — it is the evidence that the
   ;; delegation works on the runtime the JVM suite says nothing about, and that
-  ;; the seam fails closed there. See test/shitsuke/cljs_check.cljs.
+  ;; the seam fails closed there. See test/shitsuke/cljs_check.cljk.
   :cljs-check {:extra-paths ["test"]
                :extra-deps {org.clojure/clojurescript {:mvn/version "1.11.132"}}
                :main-opts ["-m" "cljs.main" "-t" "node" "-O" "none"

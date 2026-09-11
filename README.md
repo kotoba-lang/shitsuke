@@ -86,7 +86,7 @@ text-style-props). Dual-render seams (`reagent` / `re-frame`) stay on the
 `.cljc` host side. Consumer APIs (`shitsuke.tokens` / `shitsuke.hig`) are
 unchanged — this is an oracle-backed experiment ahead of W4 recursive
 values, not the final API. Byte-equality is gated by
-`test/shitsuke/kotoba_parity_test.clj` (compiler is test-only).
+`test/shitsuke/kotoba_parity_test.cljk` (compiler is test-only).
 
 ### Which cores actually RUN (ADR-2608120200 §1)
 
@@ -223,8 +223,8 @@ refusal paths.
 ## Tests
 
 ```bash
-nbb --classpath src test/kotoba/guest_acceptance.cljs   # the bridge against the emitted ESM
-nbb test/worker/reframe_worker_acceptance.cljs          # the Worker host on workerd
+nbb --classpath src test/kotoba/guest_acceptance.cljk   # the bridge against the emitted ESM
+nbb test/worker/reframe_worker_acceptance.cljk          # the Worker host on workerd
 # the guest, on :jvm-kir :js and :wasm. The CLI needs ABSOLUTE paths: a
 # relative one is "input must be a regular file" (measured 2026-09-09).
 kotoba -M test "$PWD/kotoba/reframe_core.kotoba"

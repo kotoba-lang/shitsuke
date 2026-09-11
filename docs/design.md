@@ -160,7 +160,7 @@ working from the same hiccup data.
 **Portable subset (app code MUST stay within):** `reg-event-db`, `reg-sub`,
 `dispatch`, `dispatch-sync`, `subscribe`, `clear!`, `app-db`. MUST NOT use:
 `reg-event-fx`, `reg-fx`, `reg-cofx`, `inject-cofx`, interceptors, subscription
-chaining (`<-`). Pinned by `test/shitsuke/re_frame_test.cljc`.
+chaining (`<-`). Pinned by `test/shitsuke/re_frame_test.cljk`.
 
 ## Layer 5 — `shitsuke.reagent.core`
 
