@@ -146,7 +146,7 @@ deliberate: a silent fallback around a missing security core is how an
 unchecked payload reaches a page. Everything else in `shitsuke.hiccup` —
 including `->html` of any markup with no raw-text element — is untouched.
 
-`clojure -M:cljs-check` runs the delegated path on ClojureScript/Node and
+`kbb -M:cljs-check` runs the delegated path on ClojureScript/Node and
 asserts both the refusal and the answers. A green JVM suite is not evidence
 about ClojureScript: two runtime asymmetries in the KIR interpreter were
 measured across the fleet on 2026-08-12 that are invisible from the JVM.
@@ -223,15 +223,15 @@ refusal paths.
 ## Tests
 
 ```bash
-nbb --classpath src test/kotoba/guest_acceptance.cljk   # the bridge against the emitted ESM
-nbb test/worker/reframe_worker_acceptance.cljk          # the Worker host on workerd
+kbb --backend sci --classpath src test/kotoba/guest_acceptance.cljk   # the bridge against the emitted ESM
+kbb --backend sci test/worker/reframe_worker_acceptance.cljk          # the Worker host on workerd
 # the guest, on :jvm-kir :js and :wasm. The CLI needs ABSOLUTE paths: a
 # relative one is "input must be a regular file" (measured 2026-09-09).
 kotoba -M test "$PWD/kotoba/reframe_core.kotoba"
 kotoba -M test "$PWD/kotoba/reagent_core.kotoba"
-clojure -M:test        # JVM suite, including the drift and delegation gates
-clojure -M:cljs-check  # the delegated path on ClojureScript/Node
-clojure -M:test:gen    # regenerate resources/shitsuke/oracle/*.kir.edn
+kbb -M:test        # JVM suite, including the drift and delegation gates
+kbb -M:cljs-check  # the delegated path on ClojureScript/Node
+kbb -M:test:gen    # regenerate resources/shitsuke/oracle/*.kir.edn
 ```
 
 ## Design
