@@ -1,4 +1,4 @@
-#!/usr/bin/env nbb
+#!/usr/bin/env kbb
 ;; Acceptance for `shitsuke.kotoba.guest`: drive the REAL compiled artifact.
 ;;
 ;; The bridge is small enough that a test with a hand-written `call` function
@@ -7,14 +7,14 @@
 ;; calls the emitted restricted ESM, which is the same artifact a Cloudflare
 ;; Worker and a browser bundle load.
 ;;
-;; nbb rather than the JVM suite: this repo's `clojure -M:test` needs a JVM,
+;; nbb rather than the JVM suite: this repo's `kbb -M:test` needs a JVM,
 ;; and the runtime order here puts nbb above it. The seam's :clj branch (the
 ;; mini runtime + install-guest!) is covered by test/shitsuke/kotoba_guest_test.cljk.
 ;;
 ;; Exit codes: 0 passed, 1 failed, 2 REFUSED (the tools to answer are absent,
 ;; which is not a pass).
 ;;
-;;   nbb --classpath src test/kotoba/guest_acceptance.cljk
+;;   kbb --backend sci --classpath src test/kotoba/guest_acceptance.cljk
 
 (ns kotoba.guest-acceptance
   (:require ["node:child_process" :as cp]

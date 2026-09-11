@@ -1,7 +1,7 @@
 (ns shitsuke.cljs-check
   "Runs the DELEGATED RAWTEXT path under ClojureScript on Node.
 
-      clojure -M:cljs-check
+      kbb -M:cljs-check
 
   This exists because a green JVM suite is not evidence about ClojureScript,
   and this delegation had two runtime-specific reasons to fail there.

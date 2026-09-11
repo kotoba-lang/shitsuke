@@ -1,4 +1,4 @@
-#!/usr/bin/env nbb
+#!/usr/bin/env kbb
 ;; Acceptance for `runtime/reframe-worker.mjs`: build the example guest, serve
 ;; it from workerd (the runtime Cloudflare actually runs), and check the
 ;; answers over HTTP.
@@ -18,7 +18,7 @@
 ;; Exit codes are three-valued on purpose. 0 passed, 1 a real failure, and
 ;; 2 REFUSED -- the tools needed to answer are missing, which is not a pass.
 ;;
-;;   nbb test/worker/reframe_worker_acceptance.cljk
+;;   kbb --backend sci test/worker/reframe_worker_acceptance.cljk
 
 (ns reframe-worker-acceptance
   (:require ["node:child_process" :as cp]

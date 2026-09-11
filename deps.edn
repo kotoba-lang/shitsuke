@@ -59,7 +59,7 @@
   ;; Regenerate the shipped decision-core KIR. Combine with :test, which is
   ;; where the compiler lives:
   ;;
-  ;;   clojure -M:test:gen
+  ;;   kbb -M:test:gen
   :gen   {:main-opts ["-m" "shitsuke.kotoba-oracle-gen"]}
   ;; Run the delegated RAWTEXT path on ClojureScript/Node. Separate from :test
   ;; because it is not a cljs.test suite — it is the evidence that the
