@@ -31,7 +31,7 @@
   instance or the KIR interpreter -- it takes a `call` function and uses it, so
   the same code drives the ESM artifact in the browser, the same artifact in a
   Cloudflare Worker, and the wasm build under `shitsuke.kotoba-oracle`."
-  (:require [clojure.edn :as edn]))
+  (:require [kotoba.lang.edn :as edn]))
 
 (defn guest
   "Wrap a call function as a guest.

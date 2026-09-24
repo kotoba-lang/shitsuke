@@ -21,7 +21,7 @@
   directly: a core that says \"no breakout\" when there is one must make
   `->html` emit the payload, and if it does not, something other than the
   shipped core is deciding."
-  (:require [clojure.edn :as edn]
+  (:require [kotoba.lang.edn :as edn]
             [clojure.java.io :as io]
             [kotoba.lang.text :as str]
             [kotoba.test :refer [deftest is testing]]

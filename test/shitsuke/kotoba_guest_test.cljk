@@ -15,7 +15,7 @@
   test is sufficient alone: this one would pass against a guest that never
   compiled, and that one says nothing about re-frame registration."
   (:require [kotoba.test :refer [deftest is use-fixtures]]
-            [clojure.edn :as edn]
+            [kotoba.lang.edn :as edn]
             [shitsuke.kotoba.guest :as kg]
             [shitsuke.re-frame.core :as rf]
             [shitsuke.reagent.core :as r]))
