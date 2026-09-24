@@ -2,7 +2,7 @@
   "Pins the portable re-frame subset (the 7-fn API). App code that stays within
   this subset runs on the JVM mini runtime AND real re-frame on cljs. Mirrors
   wasm-ui's compat_api_test shape."
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [kotoba.test :refer [deftest is testing use-fixtures]]
             [shitsuke.re-frame :as rf]))
 
 (use-fixtures :each (fn [t] (rf/clear!) (t) (rf/clear!)))

@@ -20,7 +20,7 @@
   Kotoba's `:explicit-errors` invariant is permanent — so only the
   judgement crosses."
   (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]
             [shitsuke.components :as components]

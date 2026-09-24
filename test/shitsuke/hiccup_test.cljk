@@ -1,6 +1,6 @@
 (ns shitsuke.hiccup-test
   (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             [shitsuke.hiccup :as h]))
 
 (deftest esc-test

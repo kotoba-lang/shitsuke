@@ -1,5 +1,5 @@
 (ns shitsuke.tokens-test
-  (:require [kotoba.lang.text] [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.lang.text] [kotoba.test :refer [deftest is testing]]
             [shitsuke.tokens :as t]))
 
 (deftest deep-merge-test

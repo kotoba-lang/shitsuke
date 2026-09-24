@@ -1,5 +1,5 @@
 (ns shitsuke.hig-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kotoba.lang.text :as str]
             [shitsuke.hig :as hig]))
 
