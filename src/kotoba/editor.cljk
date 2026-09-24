@@ -5,7 +5,7 @@
   or a concrete document schema. Callers provide small access/update functions
   for their model. The same code can back slides, sheets/docs canvases, or KAMI
   scene editors."
-  (:require [clojure.set :as set]))
+  (:require [kotoba.lang.coll :as set]))
 
 (def default-history-limit 80)
 

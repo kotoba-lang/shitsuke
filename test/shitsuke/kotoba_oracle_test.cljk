@@ -25,7 +25,7 @@
             [clojure.java.io :as io]
             [kotoba.lang.text :as str]
             [kotoba.test :refer [deftest is testing]]
-            [clojure.walk :as walk]
+            [kotoba.lang.coll :as walk]
             [kotoba.compiler.core :as compiler]
             [shitsuke.hiccup :as hiccup]
             [shitsuke.kotoba-oracle :as oracle]
