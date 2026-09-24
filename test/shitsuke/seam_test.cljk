@@ -2,7 +2,7 @@
   "Verifies the host seam namespaces load and delegate to the mini runtime on
   the :clj path. (The :cljs path is exercised by consumer browser builds;
   cljs-only assertions are omitted here so the JVM test run is self-contained.)"
-  (:require [clojure.test :refer [deftest is use-fixtures]]
+  (:require [kotoba.test :refer [deftest is use-fixtures]]
             [shitsuke.re-frame.core :as rf]
             [shitsuke.reagent.core :as r]
             [shitsuke.hiccup :as h]))

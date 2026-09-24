@@ -11,7 +11,7 @@
   T5.2 + document-in-record: constructors/render folds use guest records with
   `:document` fields (`:tokdoc/*`, `:higdoc/*`)."
   (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]
             [kotoba.kir.value :as value]

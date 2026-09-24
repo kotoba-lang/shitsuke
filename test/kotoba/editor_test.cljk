@@ -1,5 +1,5 @@
 (ns kotoba.editor-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [kotoba.editor :as editor]))
 
 (deftest selection-test

@@ -1,5 +1,5 @@
 (ns shitsuke.components-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kotoba.lang.text :as str]
             [shitsuke.components :as c]
             [shitsuke.hiccup :as h]))
