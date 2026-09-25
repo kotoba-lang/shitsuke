@@ -21,8 +21,8 @@
   directly: a core that says \"no breakout\" when there is one must make
   `->html` emit the payload, and if it does not, something other than the
   shipped core is deciding."
-  (:require [kotoba.lang.edn :as edn]
-            [clojure.java.io :as io]
+  (:require [kotoba.lang.error :as kerror] [kotoba.lang.edn :as edn]
+            [kotoba.io :as io]
             [kotoba.lang.text :as str]
             [kotoba.test :refer [deftest is testing]]
             [kotoba.lang.coll :as walk]
@@ -72,9 +72,9 @@
 (deftest a-missing-artifact-throws-rather-than-deciding-anything
   ;; The seam's one refusal. If it fell back instead, the first thing anyone
   ;; would notice is that an unchecked payload reached a page.
-  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"shipped decision core is missing"
+  (is (thrown-with-msg? kerror/ExceptionInfo #"shipped decision core is missing"
                         (oracle/kir :not-a-core)))
-  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"does not declare that export"
+  (is (thrown-with-msg? kerror/ExceptionInfo #"does not declare that export"
                         (oracle/param-types :hiccup-core 'no-such-export))))
 
 ;; ── what ships has to work on ClojureScript too ──────────────────────
@@ -150,7 +150,7 @@
   "Did `->html` refuse this raw-text payload?"
   [tag content]
   (try (hiccup/->html [(keyword tag) [:hiccup/raw content]]) false
-       (catch clojure.lang.ExceptionInfo _ true)))
+       (catch kerror/ExceptionInfo _ true)))
 
 (deftest the-host-reads-the-artifact-rather-than-keeping-a-copy
   (let [inverted (:kir (compiler/compile-source inverted-hiccup-source oracle/target {}))]
@@ -187,7 +187,7 @@
          (oracle/only-param-type :hiccup-core 'rawtext-breakout?))
       "the parameter is declared as a :ref and must resolve to its descriptor")
   (is (= :bool (:result (oracle/signature :hiccup-core 'rawtext-breakout?))))
-  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"missing a declared field"
+  (is (thrown-with-msg? kerror/ExceptionInfo #"missing a declared field"
                         (oracle/record-of
                          (oracle/only-param-type :hiccup-core 'rawtext-breakout?)
                          {:tag "script"}))))

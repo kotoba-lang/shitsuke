@@ -40,7 +40,7 @@
   (is (= {} @rf/app-db)))
 
 (deftest missing-handler-throws-test
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown? js/Error
                (rf/dispatch [:nope])))
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown? js/Error
                @(rf/subscribe [:nope]))))
