@@ -86,15 +86,15 @@
   ;; throws rather than being silently skipped.
   (let [answer (kg/handle g {:count 1} [:counter/reset])]
     (is (= [[:dispatch [:ui/focus]]] (:fx answer))))
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown? js/Error
                (#'shitsuke.re-frame.core/perform-fx! {} [[:mail/send {:to "x"}]]))))
 
 (deftest install-guest-fails-closed-on-an-empty-registration-test
   ;; Installing nothing leaves every dispatch answering exactly as before,
   ;; which is indistinguishable from a guest that works.
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown? js/Error
                (rf/install-guest! g {})))
-  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown? js/Error
                (rf/install-guest! g {:events #{} :queries #{}}))))
 
 (deftest kotoba-view-renders-through-the-existing-renderers-test

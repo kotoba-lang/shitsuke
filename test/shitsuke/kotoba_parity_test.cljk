@@ -19,7 +19,7 @@
   shitsuke.hiccup's XSS guard. The guard's THROW stays host-side —
   Kotoba's `:explicit-errors` invariant is permanent — so only the
   judgement crosses."
-  (:require [kotoba.lang.text :as str]
+  (:require [kotoba.lang.error :as kerror] [kotoba.lang.text :as str]
             [kotoba.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]
@@ -277,7 +277,7 @@
   (try
     (hiccup/->html [(keyword tag) [:hiccup/raw content]])
     false
-    (catch clojure.lang.ExceptionInfo _ true)))
+    (catch kerror/ExceptionInfo _ true)))
 
 (deftest hiccup-rawtext-breakout-predicate-matches-the-cljc-guard
   (let [cases {"clean" ["style" "body { color: red; }"]

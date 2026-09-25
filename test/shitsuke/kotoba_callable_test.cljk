@@ -29,7 +29,7 @@
   require. Targets match the harness that gates each module — the form-A cores
   on `:wasm32-kotoba-v1`, the document cores on `:js-kotoba-v1` — so the
   shipped shape is checked on the target it is gated on."
-  (:require [kotoba.lang.text :as str]
+  (:require [kotoba.lang.error :as kerror] [kotoba.lang.text :as str]
             [kotoba.test :refer [deftest is testing]]
             [kotoba.compiler.core :as compiler]
             [kotoba.kir :as ir]))
@@ -95,7 +95,7 @@
             (str exported " is exported and must not be refused as unexported"))
         (when internal
           (is (contains? names internal) (str internal " must exist"))
-          (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not exported"
+          (is (thrown-with-msg? kerror/ExceptionInfo #"not exported"
                                 (ir/execute kir internal [""] {:fuel fuel}))
               (str internal " is not in the list and must stay uncallable")))))))
 
