@@ -23,7 +23,7 @@
             ["node:path" :as path]
             [shitsuke.kotoba.guest :as kg]))
 
-(def script (or (first (filter (fn [a] (.endsWith a ".cljs")) (rest (.slice js/process.argv 0))))
+(def script (or (first (filter (fn [a] (.endsWith a ".cljk")) (rest (.slice js/process.argv 0))))
                 "test/kotoba/guest_acceptance.cljk"))
 (def root (path/resolve (path/dirname (path/resolve script)) ".." ".."))
 
