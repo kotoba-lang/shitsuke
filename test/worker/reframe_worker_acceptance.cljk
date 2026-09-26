@@ -31,7 +31,7 @@
 ;; argv[1] is nbb itself and argv[2] is `--classpath` as soon as one is passed.
 ;; Both times the wrong element resolved a repo root that does not exist, and
 ;; the failure surfaced two steps later as "project path is not readable".
-(def script (or (first (filter (fn [a] (.endsWith a ".cljs")) (rest (.slice js/process.argv 0))))
+(def script (or (first (filter (fn [a] (.endsWith a ".cljk")) (rest (.slice js/process.argv 0))))
                 "test/worker/reframe_worker_acceptance.cljk"))
 (def root (path/resolve (path/dirname (path/resolve script)) ".." ".."))
 (def port 8791)
